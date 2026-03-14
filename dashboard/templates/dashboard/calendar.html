@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MemoRax · Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet'/>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#03060f; --sidebar-bg:#0a1733;
+  --blue:#5bc4ff; --blue-dark:#2a8fd4;
+  --yellow:#FFD233; --green:#4CC97A;
+  --text:#e8f4ff; --text-mid:#8ab8d8; --text-dim:#4a7090;
+  --border:rgba(91,196,255,0.12);
+  --card-bg:rgba(255,255,255,0.04);
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+}
+body.light-mode{
+  --bg:#eef4fb; --sidebar-bg:#ffffff;
+  --blue:#0066CC; --blue-dark:#0052A3;
+  --text:#0d1b2e; --text-mid:#3a5a7a; --text-dim:#7090aa;
+  --border:rgba(0,102,204,0.14);
+  --card-bg:rgba(255,255,255,0.85);
+}
+html,body{height:100%;}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .5s ease,color .5s ease;}
+
+/* SPACE BG */
+.space-bg{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 80% 60% at 15% 40%,#0c1d42 0%,#060e22 45%,#020509 100%);overflow:hidden;pointer-events:none;transition:opacity .5s ease;}
+body.light-mode .space-bg{opacity:0;}
+.nebula{position:absolute;border-radius:50%;pointer-events:none;}
+.neb-1{width:55vw;height:40vw;max-width:700px;top:-8%;left:-8%;background:radial-gradient(circle,rgba(80,30,180,.12)0%,transparent 70%);filter:blur(60px);}
+.neb-2{width:45vw;height:45vw;max-width:600px;top:40%;right:-10%;background:radial-gradient(circle,rgba(0,100,200,.1)0%,transparent 70%);filter:blur(70px);}
+#starCanvas{position:absolute;inset:0;width:100%;height:100%;opacity:0.6;}
+
+/* LAYOUT */
+.layout{position:relative;z-index:1;margin-left:240px;min-height:100vh;}
+
+/* SIDEBAR — always fixed, outside layout stacking context */
+.sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;z-index:300;background:var(--sidebar-bg);border-right:1px solid var(--border);box-shadow:4px 0 24px rgba(0,0,0,.3);display:flex;flex-direction:column;padding:24px 16px;transition:background .5s ease,border-color .5s ease;}
+.sidebar-logo{font-family:'Baloo 2',cursive;font-size:1.5rem;font-weight:800;color:var(--yellow);display:flex;align-items:center;gap:8px;text-shadow:0 0 20px rgba(255,210,51,.4);margin-bottom:24px;text-decoration:none;}
+.logo-star{animation:logoPulse 4s ease-in-out infinite;}
+@keyframes logoPulse{0%,100%{filter:drop-shadow(0 0 4px #FFD233);}50%{filter:drop-shadow(0 0 14px #FFD233);}}
+.sidebar-user{background:rgba(91,196,255,.07);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:24px;}
+.sidebar-user-name{font-weight:800;font-size:.95rem;color:var(--text);margin-bottom:2px;}
+.sidebar-user-plan{font-size:.73rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px;}
+.sidebar-nav{flex:1;}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;color:var(--text-mid);font-weight:700;font-size:.9rem;text-decoration:none;transition:all .2s;margin-bottom:3px;}
+.sidebar-nav a:hover{background:rgba(91,196,255,.1);color:var(--blue);}
+.sidebar-nav a.active{background:rgba(91,196,255,.15);color:var(--blue);border:1px solid rgba(91,196,255,.2);}
+.sidebar-nav a .nav-icon{font-size:1.1rem;width:22px;text-align:center;flex-shrink:0;}
+.sidebar-footer{font-size:.72rem;color:var(--text-dim);font-weight:700;text-align:center;padding-top:16px;border-top:1px solid var(--border);}
+.theme-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:10px;background:rgba(91,196,255,.08);border:1px solid var(--border);color:var(--text-mid);font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;padding:8px;border-radius:10px;cursor:pointer;transition:background .2s,color .2s;}
+.theme-btn:hover{background:rgba(91,196,255,.16);color:var(--blue);}
+body.light-mode .theme-btn{background:rgba(0,102,204,.07);}
+
+/* MAIN */
+.main{padding:32px;min-width:0;}
+.page-header{margin-bottom:24px;}
+.page-title{font-family:'Baloo 2',cursive;font-size:1.8rem;font-weight:800;color:var(--text);margin-bottom:4px;}
+.page-sub{font-size:.88rem;color:var(--text-mid);font-weight:600;}
+
+/* LEGEND */
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:12px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:20px;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:.8rem;font-weight:700;color:var(--text-mid);}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.legend-hint{margin-left:auto;font-size:.75rem;color:var(--text-dim);font-weight:600;}
+
+/* CALENDAR CONTAINER */
+.cal-wrap{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:18px;padding:24px;}
+
+/* FULLCALENDAR DARK THEME */
+.fc{color:var(--text);}
+.fc .fc-toolbar-title{font-family:'Baloo 2',cursive;font-size:1.3rem;font-weight:800;color:var(--text);}
+.fc .fc-button-primary{background:rgba(91,196,255,.15);border:1px solid rgba(91,196,255,.3);color:var(--blue);font-family:'Nunito',sans-serif;font-weight:800;font-size:.82rem;border-radius:10px;padding:6px 14px;transition:all .2s;}
+.fc .fc-button-primary:hover{background:rgba(91,196,255,.25);border-color:var(--blue);color:var(--blue);}
+.fc .fc-button-primary:not(:disabled).fc-button-active,.fc .fc-button-primary:not(:disabled):active{background:rgba(91,196,255,.3);border-color:var(--blue);color:var(--text);box-shadow:none;}
+.fc .fc-button-primary:focus{box-shadow:none;}
+.fc .fc-col-header-cell-cushion{font-family:'Nunito',sans-serif;font-weight:800;font-size:.82rem;color:var(--text-mid);text-decoration:none;}
+.fc .fc-daygrid-day-number{font-family:'Nunito',sans-serif;font-weight:700;font-size:.85rem;color:var(--text-mid);text-decoration:none;}
+.fc .fc-daygrid-day-number:hover{color:var(--blue);}
+.fc .fc-day-today{background:rgba(91,196,255,.07)!important;}
+.fc .fc-day-today .fc-daygrid-day-number{color:var(--blue);font-weight:900;}
+.fc-theme-standard td,.fc-theme-standard th,.fc-theme-standard .fc-scrollgrid{border-color:rgba(91,196,255,.1)!important;}
+.fc .fc-daygrid-event{border-radius:6px;font-size:.78rem;font-weight:700;border:none;padding:2px 6px;margin-bottom:2px;}
+.fc .fc-timegrid-slot{border-color:rgba(91,196,255,.08)!important;}
+.fc .fc-timegrid-axis-cushion,.fc .fc-timegrid-slot-label-cushion{font-size:.75rem;color:var(--text-dim);font-weight:700;}
+.fc .fc-now-indicator-line{border-color:var(--green);}
+.fc .fc-popover{background:#0c1d42;border:1px solid var(--border);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.6);}
+.fc .fc-popover-header{background:rgba(91,196,255,.1);border-radius:12px 12px 0 0;padding:8px 12px;font-family:'Nunito',sans-serif;font-weight:800;color:var(--text);font-size:.85rem;}
+.fc .fc-popover-close{color:var(--text-mid);}
+.fc .fc-more-link{color:var(--blue);font-weight:800;font-size:.75rem;}
+.fc .fc-highlight{background:rgba(91,196,255,.1);}
+.fc .fc-list-event:hover td{background:rgba(91,196,255,.08);}
+.fc .fc-list-day-cushion{background:rgba(6,14,34,.9);}
+.fc .fc-list-day-text,.fc .fc-list-day-side-text{color:var(--text-mid);font-weight:800;}
+.fc .fc-event-title{font-weight:700;}
+
+/* EVENT MODAL */
+.modal-backdrop{position:fixed;inset:0;z-index:500;background:rgba(3,6,15,.8);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-backdrop.show{display:flex;}
+.modal-box{background:linear-gradient(135deg,#060e22,#0c1d42);border:1px solid rgba(91,196,255,.25);border-radius:22px;padding:28px;max-width:400px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.6);animation:modalIn .35s var(--ease-spring);}
+@keyframes modalIn{from{transform:scale(.9) translateY(16px);opacity:0;}to{transform:scale(1) translateY(0);opacity:1;}}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;}
+.modal-title{font-family:'Baloo 2',cursive;font-size:1.2rem;font-weight:800;color:var(--text);line-height:1.3;}
+.modal-close{background:rgba(255,255,255,.08);border:none;color:var(--text-mid);font-size:1.1rem;width:32px;height:32px;min-width:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;}
+.modal-close:hover{background:rgba(255,255,255,.15);color:var(--text);}
+.modal-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+.modal-row:last-child{border-bottom:none;}
+.modal-row-icon{font-size:1rem;flex-shrink:0;margin-top:1px;}
+.modal-row-text{font-size:.88rem;color:var(--text-mid);font-weight:600;line-height:1.5;}
+.modal-desc{background:rgba(91,196,255,.06);border:1px solid rgba(91,196,255,.12);border-radius:10px;padding:10px 12px;margin-top:4px;font-size:.83rem;color:var(--text-mid);font-weight:600;line-height:1.6;}
+
+/* MOBILE */
+.mob-header{display:none;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(6,14,34,.95);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);transition:background .5s ease;}
+body.light-mode .mob-header{background:rgba(255,255,255,.95);}
+.mob-logo{font-family:'Baloo 2',cursive;font-size:1.3rem;font-weight:800;color:var(--yellow);}
+.mob-header-right{display:flex;align-items:center;gap:8px;}
+.mob-toggle{background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-mid);font-size:1.2rem;width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.mob-theme-btn{background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-mid);font-size:1rem;width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+body.light-mode .mob-toggle,body.light-mode .mob-theme-btn{background:rgba(0,102,204,.08);border-color:rgba(0,102,204,.2);}
+.sidebar-overlay{display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);}
+.sidebar-overlay.open{display:block;}
+.sidebar.mob-open{transform:translateX(0)!important;}
+
+@media(max-width:680px){
+  .mob-header{display:flex;}
+  .sidebar{transform:translateX(-100%);transition:transform .3s var(--ease-spring);}
+  .layout{margin-left:0;}
+  .main{padding:20px 12px;}
+  .legend-hint{display:none;}
+  .cal-wrap{padding:14px 8px;}
+  .fc .fc-toolbar{flex-wrap:wrap;gap:8px;}
+  .fc .fc-toolbar-title{font-size:1rem;}
+}
+</style>
+</head>
+<body>
+
+<div class="space-bg">
+  <div class="nebula neb-1"></div>
+  <div class="nebula neb-2"></div>
+  <canvas id="starCanvas"></canvas>
+</div>
+
+<!-- Mobile header -->
+<div class="mob-header">
+  <span class="mob-logo">⭐ MemoRax</span>
+  <div class="mob-header-right">
+    <button class="mob-theme-btn" id="mobThemeBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+    <button class="mob-toggle" onclick="toggleSidebar()">☰</button>
+  </div>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR — outside .layout so z-index is in root stacking context -->
+<aside class="sidebar" id="sidebar">
+  <a href="/" class="sidebar-logo"><span class="logo-star">⭐</span> MemoRax</a>
+
+  <div class="sidebar-user">
+    <div class="sidebar-user-name">👋 {{ user.name|default:"Friend" }}</div>
+    <div class="sidebar-user-plan">{{ user.tier|upper }} Plan</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="/dash/{{ token }}/" onclick="closeSidebar()">
+      <span class="nav-icon">🏠</span> Overview
+    </a>
+    <a href="/dash/{{ token }}/calendar/" class="active" onclick="closeSidebar()">
+      <span class="nav-icon">📅</span> Calendar
+    </a>
+    <a href="/dash/{{ token }}/#memories" onclick="closeSidebar()">
+      <span class="nav-icon">🧠</span> Memories
+    </a>
+    <a href="/dash/{{ token }}/#reminders" onclick="closeSidebar()">
+      <span class="nav-icon">⏰</span> Reminders
+    </a>
+    <a href="/dash/{{ token }}/files/" onclick="closeSidebar()">
+      <span class="nav-icon">📁</span> File Vault
+    </a>
+    <a href="/dash/{{ token }}/#activity" onclick="closeSidebar()">
+      <span class="nav-icon">📊</span> Activity
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">MemoRax AI · Your memory on WhatsApp</div>
+  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
+</aside>
+
+<div class="layout">
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <div class="page-header">
+      <div class="page-title">📅 Calendar</div>
+      <div class="page-sub">All your events added via WhatsApp</div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <span class="legend-item"><span class="leg-dot" style="background:#5bc4ff"></span> Meeting</span>
+      <span class="legend-item"><span class="leg-dot" style="background:#4CC97A"></span> Personal</span>
+      <span class="legend-item"><span class="leg-dot" style="background:#a78bfa"></span> Appointment</span>
+      <span class="legend-item"><span class="leg-dot" style="background:#f87171"></span> Deadline</span>
+      <span class="legend-item"><span class="leg-dot" style="background:#FFD233"></span> Reminder</span>
+      <span class="legend-hint">💡 Say "Meeting with Rahul tomorrow 3pm" on WhatsApp</span>
+    </div>
+
+    <!-- Calendar -->
+    <div class="cal-wrap">
+      <div id="calendar"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Event Detail Modal -->
+<div class="modal-backdrop" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+/* Star canvas */
+(function(){
+  const canvas=document.getElementById('starCanvas'),ctx=canvas.getContext('2d');
+  let stars=[];
+  function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;buildStars();}
+  function buildStars(){stars=[];const n=Math.min(Math.floor(canvas.width*canvas.height/5000),300);for(let i=0;i<n;i++)stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.2+.2,a:Math.random(),da:(Math.random()*.005+.002)*(Math.random()<.5?1:-1),col:Math.random()<.1?'#ffe89a':'#ffffff'});}
+  function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);for(const s of stars){s.a+=s.da;if(s.a>=1||s.a<=.04)s.da*=-1;ctx.globalAlpha=s.a;ctx.fillStyle=s.col;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;requestAnimationFrame(draw);}
+  let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(resize,150);});
+  resize();draw();
+})();
+
+/* Sidebar toggle */
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('mob-open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('mob-open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+/* FullCalendar */
+const TOKEN = "{{ token }}";
+document.addEventListener('DOMContentLoaded', function() {
+  const calendarEl = document.getElementById('calendar');
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay'
+    },
+    events: `/dash/${TOKEN}/api/events/`,
+    eventClick: function(info) { showModal(info.event); },
+    eventMouseEnter: function(info) { info.el.style.opacity = '0.8'; },
+    eventMouseLeave: function(info) { info.el.style.opacity = '1'; },
+    height: 'auto',
+    nowIndicator: true,
+    slotMinTime: '07:00:00',
+    slotMaxTime: '23:00:00',
+    eventDisplay: 'block',
+  });
+  calendar.render();
+});
+
+function showModal(event) {
+  document.getElementById('modal-title').textContent = event.title;
+
+  const props = event.extendedProps;
+  const startStr = event.start ? event.start.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true
+  }) : '';
+  const endStr = event.end ? event.end.toLocaleString('en-IN', {
+    hour: '2-digit', minute: '2-digit', hour12: true
+  }) : '';
+
+  let html = `<div class="modal-row">
+    <span class="modal-row-icon">🗓️</span>
+    <span class="modal-row-text">${startStr}${endStr ? ' — ' + endStr : ''}</span>
+  </div>`;
+
+  if (props.location) {
+    html += `<div class="modal-row">
+      <span class="modal-row-icon">📍</span>
+      <span class="modal-row-text">${props.location}</span>
+    </div>`;
+  }
+  if (props.participants && props.participants.length) {
+    html += `<div class="modal-row">
+      <span class="modal-row-icon">👥</span>
+      <span class="modal-row-text">${props.participants.join(', ')}</span>
+    </div>`;
+  }
+  if (props.description && props.description !== 'Reminder') {
+    html += `<div class="modal-row">
+      <span class="modal-row-icon">📝</span>
+      <div class="modal-desc">${props.description}</div>
+    </div>`;
+  }
+
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+/* Theme toggle */
+function toggleTheme(){
+  const light=document.body.classList.toggle('light-mode');
+  localStorage.setItem('memorax-theme', light?'light':'dark');
+  updateThemeButtons(light);
+}
+function updateThemeButtons(light){
+  const label=light?'☀️ Light Mode':'🌙 Dark Mode';
+  const d=document.getElementById('themeBtn');
+  const m=document.getElementById('mobThemeBtn');
+  if(d)d.textContent=label;
+  if(m)m.textContent=light?'☀️':'🌙';
+}
+(function(){
+  const saved=localStorage.getItem('memorax-theme');
+  if(saved==='light'){document.body.classList.add('light-mode');updateThemeButtons(true);}
+})();
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('mob-open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('mob-open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+</script>
+</body>
+</html>

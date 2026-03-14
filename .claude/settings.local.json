@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show:*)",
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(python manage.py migrate:*)",
+      "Bash(find:*)",
+      "Bash(pip install:*)",
+      "Bash(python manage.py check:*)",
+      "Bash(python manage.py:*)",
+      "Bash(python:*)",
+      "Bash(del \"c:\\\\Code\\\\AARNA - Ai\\\\memoroe_ai\\\\test_intent.py\")"
+    ]
+  }
+}

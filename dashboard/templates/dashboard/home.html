@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MemoRax · Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#03060f; --sidebar-bg:#0a1733;
+  --blue:#5bc4ff; --blue-dark:#2a8fd4;
+  --yellow:#FFD233; --green:#4CC97A;
+  --text:#e8f4ff; --text-mid:#8ab8d8; --text-dim:#4a7090;
+  --border:rgba(91,196,255,0.12);
+  --card-bg:rgba(255,255,255,0.04);
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+}
+body.light-mode{
+  --bg:#eef4fb; --sidebar-bg:#ffffff;
+  --blue:#0066CC; --blue-dark:#0052A3;
+  --text:#0d1b2e; --text-mid:#3a5a7a; --text-dim:#7090aa;
+  --border:rgba(0,102,204,0.14);
+  --card-bg:rgba(255,255,255,0.85);
+}
+html{height:100%;}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-y:auto;transition:background .5s ease,color .5s ease;}
+
+/* SPACE BG */
+.space-bg{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 80% 60% at 15% 40%,#0c1d42 0%,#060e22 45%,#020509 100%);overflow:hidden;pointer-events:none;transition:opacity .5s ease;}
+body.light-mode .space-bg{opacity:0;}
+.nebula{position:absolute;border-radius:50%;pointer-events:none;}
+.neb-1{width:55vw;height:40vw;max-width:700px;top:-8%;left:-8%;background:radial-gradient(circle,rgba(80,30,180,.12)0%,transparent 70%);filter:blur(60px);}
+.neb-2{width:45vw;height:45vw;max-width:600px;top:40%;right:-10%;background:radial-gradient(circle,rgba(0,100,200,.1)0%,transparent 70%);filter:blur(70px);}
+#starCanvas{position:absolute;inset:0;width:100%;height:100%;opacity:0.6;}
+
+/* LAYOUT */
+.layout{position:relative;z-index:1;margin-left:240px;min-height:100vh;}
+
+/* SIDEBAR — always fixed, outside layout stacking context */
+.sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;z-index:300;background:var(--sidebar-bg);border-right:1px solid var(--border);box-shadow:4px 0 24px rgba(0,0,0,.3);display:flex;flex-direction:column;padding:24px 16px;transition:background .5s ease,border-color .5s ease;}
+.sidebar-logo{font-family:'Baloo 2',cursive;font-size:1.5rem;font-weight:800;color:var(--yellow);display:flex;align-items:center;gap:8px;text-shadow:0 0 20px rgba(255,210,51,.4);margin-bottom:24px;text-decoration:none;}
+.logo-star{animation:logoPulse 4s ease-in-out infinite;}
+@keyframes logoPulse{0%,100%{filter:drop-shadow(0 0 4px #FFD233);}50%{filter:drop-shadow(0 0 14px #FFD233);}}
+.sidebar-user{background:rgba(91,196,255,.07);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:24px;}
+.sidebar-user-name{font-weight:800;font-size:.95rem;color:var(--text);margin-bottom:2px;}
+.sidebar-user-plan{font-size:.73rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px;}
+.sidebar-nav{flex:1;}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;color:var(--text-mid);font-weight:700;font-size:.9rem;text-decoration:none;transition:all .2s;margin-bottom:3px;}
+.sidebar-nav a:hover{background:rgba(91,196,255,.1);color:var(--blue);}
+.sidebar-nav a.active{background:rgba(91,196,255,.15);color:var(--blue);border:1px solid rgba(91,196,255,.2);}
+.sidebar-nav a .nav-icon{font-size:1.1rem;width:22px;text-align:center;flex-shrink:0;}
+.sidebar-footer{font-size:.72rem;color:var(--text-dim);font-weight:700;text-align:center;padding-top:16px;border-top:1px solid var(--border);}
+.theme-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:10px;background:rgba(91,196,255,.08);border:1px solid var(--border);color:var(--text-mid);font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;padding:8px;border-radius:10px;cursor:pointer;transition:background .2s,color .2s;}
+.theme-btn:hover{background:rgba(91,196,255,.16);color:var(--blue);}
+body.light-mode .theme-btn{background:rgba(0,102,204,.07);}
+
+/* MAIN */
+.main{padding:32px;min-width:0;}
+.page-header{margin-bottom:28px;}
+.page-title{font-family:'Baloo 2',cursive;font-size:1.8rem;font-weight:800;color:var(--text);margin-bottom:4px;}
+.page-sub{font-size:.88rem;color:var(--text-mid);font-weight:600;}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+.stat-card{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:20px;text-align:center;transition:transform .3s var(--ease-spring),background .2s,box-shadow .2s;}
+.stat-card:hover{transform:translateY(-4px);background:rgba(255,255,255,.09);}
+body.light-mode .stat-card:hover{box-shadow:0 6px 20px rgba(0,102,204,.12);}
+.stat-num{font-family:'Baloo 2',cursive;font-size:2rem;font-weight:800;line-height:1.1;margin-bottom:4px;}
+.stat-label{font-size:.75rem;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.num-purple{background:linear-gradient(135deg,#a78bfa,#7c3aed);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.num-blue{background:linear-gradient(135deg,var(--blue),var(--blue-dark));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.num-yellow{background:linear-gradient(135deg,var(--yellow),#ff9f00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.num-green{background:linear-gradient(135deg,var(--green),#22c55e);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+/* 2-COL GRID */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+
+/* SECTION CARD */
+.section-card{background:var(--card-bg);border:1px solid var(--border);border-radius:18px;padding:22px;transition:background .5s ease,border-color .5s ease;}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.section-title{font-family:'Baloo 2',cursive;font-size:1.1rem;font-weight:800;color:var(--text);}
+.section-link{font-size:.8rem;font-weight:800;color:var(--blue);text-decoration:none;transition:opacity .2s;}
+.section-link:hover{opacity:.7;}
+
+/* EVENT ITEMS */
+.event-item{display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:12px;background:rgba(91,196,255,.05);border:1px solid rgba(91,196,255,.1);margin-bottom:10px;transition:background .2s;}
+.event-item:last-child{margin-bottom:0;}
+.event-item:hover{background:rgba(91,196,255,.1);}
+.event-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.dot-blue{background:var(--blue);}.dot-green{background:var(--green);}.dot-red{background:#f87171;}.dot-purple{background:#a78bfa;}.dot-orange{background:#fb923c;}
+.event-title{font-weight:800;font-size:.88rem;color:var(--text);margin-bottom:3px;}
+.event-meta{font-size:.75rem;color:var(--text-dim);font-weight:600;display:flex;gap:8px;flex-wrap:wrap;}
+
+/* REMINDER ITEMS */
+.reminder-item{display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:12px;background:rgba(255,210,51,.05);border:1px solid rgba(255,210,51,.15);margin-bottom:10px;transition:background .2s;}
+.reminder-item:last-child{margin-bottom:0;}
+.reminder-item:hover{background:rgba(255,210,51,.08);}
+.reminder-icon{font-size:1.2rem;flex-shrink:0;}
+.reminder-content{font-weight:700;font-size:.88rem;color:var(--text);margin-bottom:3px;}
+.reminder-time{font-size:.75rem;color:var(--text-dim);font-weight:600;}
+
+/* MEMORY ITEMS */
+.memory-item{display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:12px;border:1px solid transparent;margin-bottom:8px;transition:background .2s,border-color .2s;}
+.memory-item:last-child{margin-bottom:0;}
+.memory-item:hover{background:rgba(255,255,255,.04);border-color:var(--border);}
+.memory-icon{font-size:1.1rem;flex-shrink:0;margin-top:1px;}
+.memory-text{font-size:.88rem;color:var(--text-mid);font-weight:600;line-height:1.55;margin-bottom:5px;}
+.memory-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.memory-date{font-size:.72rem;color:var(--text-dim);font-weight:700;}
+.memory-tag{background:rgba(167,139,250,.15);color:#a78bfa;font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:20px;}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:36px 16px;}
+.empty-icon{font-size:2.5rem;margin-bottom:10px;}
+.empty-title{font-size:.9rem;color:var(--text-mid);font-weight:700;margin-bottom:4px;}
+.empty-hint{font-size:.78rem;color:var(--text-dim);font-weight:600;}
+
+/* ANALYTICS GRID */
+.analytics-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px;}
+@media(max-width:900px){.analytics-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:580px){.analytics-grid{grid-template-columns:repeat(2,1fr);}}
+.analytics-card{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:14px;padding:16px 12px;text-align:center;}
+body.light-mode .analytics-card{background:rgba(0,102,204,.05);border-color:rgba(0,102,204,.15);}
+.an-num{font-family:'Baloo 2',cursive;font-size:1.7rem;font-weight:800;line-height:1;margin-bottom:4px;}
+.an-label{font-size:.7rem;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.an-blue{background:linear-gradient(135deg,var(--blue),var(--blue-dark));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.an-purple{background:linear-gradient(135deg,#a78bfa,#7c3aed);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.an-green{background:linear-gradient(135deg,var(--green),#22c55e);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.an-yellow{background:linear-gradient(135deg,var(--yellow),#ff9f00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.an-pink{background:linear-gradient(135deg,#f472b6,#ec4899);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+/* TIMELINE */
+.timeline-day{margin-bottom:28px;}
+.timeline-date-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(91,196,255,.1);border:1px solid rgba(91,196,255,.2);color:var(--blue);font-size:.75rem;font-weight:900;padding:4px 14px;border-radius:50px;margin-bottom:14px;text-transform:uppercase;letter-spacing:.8px;}
+body.light-mode .timeline-date-badge{background:rgba(0,102,204,.08);border-color:rgba(0,102,204,.2);}
+.timeline-list{position:relative;padding-left:28px;}
+.timeline-list::before{content:'';position:absolute;left:9px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,rgba(91,196,255,.4),rgba(91,196,255,.05));border-radius:2px;}
+.tl-item{position:relative;display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-radius:12px;margin-bottom:6px;transition:background .2s;}
+.tl-item:hover{background:rgba(255,255,255,.04);}
+body.light-mode .tl-item:hover{background:rgba(0,102,204,.05);}
+.tl-item::before{content:'';position:absolute;left:-23px;top:14px;width:10px;height:10px;border-radius:50%;background:var(--blue);box-shadow:0 0 6px rgba(91,196,255,.5);flex-shrink:0;}
+.tl-icon{font-size:1.1rem;flex-shrink:0;width:28px;text-align:center;}
+.tl-body{flex:1;min-width:0;}
+.tl-label{font-size:.85rem;font-weight:800;color:var(--text);margin-bottom:2px;}
+.tl-detail{font-size:.78rem;color:var(--text-mid);font-weight:600;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tl-time{font-size:.72rem;color:var(--text-dim);font-weight:700;white-space:nowrap;flex-shrink:0;padding-top:2px;}
+
+/* MOBILE SIDEBAR TOGGLE */
+.mob-header{display:none;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(6,14,34,.95);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);transition:background .5s ease;}
+body.light-mode .mob-header{background:rgba(255,255,255,.95);}
+.mob-logo{font-family:'Baloo 2',cursive;font-size:1.3rem;font-weight:800;color:var(--yellow);}
+.mob-header-right{display:flex;align-items:center;gap:8px;}
+.mob-toggle{background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-mid);font-size:1.2rem;width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.mob-theme-btn{background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-mid);font-size:1rem;width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+body.light-mode .mob-toggle,body.light-mode .mob-theme-btn{background:rgba(0,102,204,.08);border-color:rgba(0,102,204,.2);}
+.sidebar-overlay{display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);}
+.sidebar-overlay.open{display:block;}
+.sidebar.mob-open{transform:translateX(0)!important;}
+
+@media(max-width:900px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .two-col{grid-template-columns:1fr;}
+}
+@media(max-width:680px){
+  .mob-header{display:flex;}
+  .sidebar{transform:translateX(-100%);transition:transform .3s var(--ease-spring);}
+  .layout{margin-left:0;}
+  .main{padding:20px 16px;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
+  .stat-card{padding:14px;}
+  .stat-num{font-size:1.6rem;}
+}
+
+/* SETTINGS */
+.settings-group{margin-bottom:28px;}
+.settings-group-title{font-family:'Baloo 2',cursive;font-size:.95rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--border);}
+.setting-row:last-child{border-bottom:none;}
+.setting-label{font-weight:700;font-size:.9rem;color:var(--text);}
+.setting-desc{font-size:.78rem;color:var(--text-dim);font-weight:600;margin-top:3px;}
+.setting-control{flex-shrink:0;}
+.toggle-wrap{display:flex;align-items:center;gap:10px;}
+.toggle{position:relative;width:50px;height:28px;cursor:pointer;display:inline-block;}
+.toggle input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-slider{position:absolute;inset:0;background:#4a5568;border-radius:50px;transition:background .25s;}
+.toggle-slider::before{content:'';position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .25s;box-shadow:0 1px 4px rgba(0,0,0,.35);}
+.toggle input:checked+.toggle-slider{background:var(--blue);}
+.toggle input:checked+.toggle-slider::before{transform:translateX(22px);}
+body.light-mode .toggle-slider{background:#b0bec5;}
+body.light-mode .toggle input:checked+.toggle-slider{background:var(--blue);}
+.num-input{background:rgba(91,196,255,.07);border:1px solid var(--border);color:var(--text);font-family:'Nunito',sans-serif;font-weight:700;font-size:.9rem;padding:7px 12px;border-radius:10px;width:80px;text-align:center;outline:none;transition:border-color .2s;}
+.num-input:focus{border-color:var(--blue);}
+body.light-mode .num-input{background:rgba(0,102,204,.06);}
+.save-btn{background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;font-family:'Nunito',sans-serif;font-weight:800;font-size:.88rem;padding:10px 24px;border:none;border-radius:12px;cursor:pointer;transition:opacity .2s,transform .2s;}
+.save-btn:hover{opacity:.88;transform:translateY(-1px);}
+.save-btn:active{transform:translateY(0);}
+.save-status{font-size:.82rem;font-weight:700;color:var(--green);margin-left:12px;opacity:0;transition:opacity .3s;}
+.save-status.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="space-bg">
+  <div class="nebula neb-1"></div>
+  <div class="nebula neb-2"></div>
+  <canvas id="starCanvas"></canvas>
+</div>
+
+<!-- Mobile header -->
+<div class="mob-header">
+  <span class="mob-logo">⭐ MemoRax</span>
+  <div class="mob-header-right">
+    <button class="mob-theme-btn" id="mobThemeBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+    <button class="mob-toggle" onclick="toggleSidebar()">☰</button>
+  </div>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR — outside .layout so z-index is in root stacking context -->
+<aside class="sidebar" id="sidebar">
+  <a href="/" class="sidebar-logo"><span class="logo-star">⭐</span> MemoRax</a>
+
+  <div class="sidebar-user">
+    <div class="sidebar-user-name">👋 {{ user.name|default:"Friend" }}</div>
+    <div class="sidebar-user-plan">{{ user.tier|upper }} Plan</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="javascript:void(0)" class="active" id="nav-overview" onclick="showSection('overview')">
+      <span class="nav-icon">🏠</span> Overview
+    </a>
+    <a href="/dash/{{ token }}/calendar/" onclick="closeSidebar()">
+      <span class="nav-icon">📅</span> Calendar
+    </a>
+    <a href="javascript:void(0)" id="nav-memories" onclick="showSection('memories')">
+      <span class="nav-icon">🧠</span> Memories
+    </a>
+    <a href="javascript:void(0)" id="nav-reminders" onclick="showSection('reminders')">
+      <span class="nav-icon">⏰</span> Reminders
+    </a>
+    <a href="/dash/{{ token }}/files/" onclick="closeSidebar()">
+      <span class="nav-icon">📁</span> File Vault
+    </a>
+    <a href="javascript:void(0)" id="nav-activity" onclick="showSection('activity')">
+      <span class="nav-icon">📊</span> Activity
+    </a>
+    <a href="javascript:void(0)" id="nav-settings" onclick="showSection('settings')">
+      <span class="nav-icon">⚙️</span> Settings
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">MemoRax AI · Your memory on WhatsApp</div>
+  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
+</aside>
+
+<div class="layout">
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <div class="page-header">
+      <div class="page-title">Your Dashboard ⭐</div>
+      <div class="page-sub">Everything MemoRax has saved for you</div>
+    </div>
+
+    <!-- OVERVIEW WRAPPER (hidden when switching to other sections) -->
+    <div id="sec-overview">
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-num num-purple">{{ total_memories }}</div>
+        <div class="stat-label">🧠 Memories</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num num-blue">{{ total_events }}</div>
+        <div class="stat-label">📅 Events</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num num-yellow">{{ pending_reminders|length }}</div>
+        <div class="stat-label">⏰ Reminders</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num num-green">{{ user.tier|upper }}</div>
+        <div class="stat-label">💎 Plan</div>
+      </div>
+    </div>
+
+    <!-- EVENTS + REMINDERS -->
+    <div class="two-col">
+
+      <!-- Upcoming Events -->
+      <div class="section-card" id="sec-events">
+        <div class="section-head">
+          <div class="section-title">📅 Upcoming Events</div>
+          <a href="/dash/{{ token }}/calendar/" class="section-link">View Calendar →</a>
+        </div>
+
+        {% if upcoming_events %}
+          {% for event in upcoming_events %}
+          <div class="event-item">
+            <div class="event-dot
+              {% if event.color == 'blue' %}dot-blue
+              {% elif event.color == 'green' %}dot-green
+              {% elif event.color == 'red' %}dot-red
+              {% elif event.color == 'purple' %}dot-purple
+              {% else %}dot-orange{% endif %}">
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div class="event-title">{{ event.title }}</div>
+              <div class="event-meta">
+                <span>🗓️ {{ event.start_time|date:"d M, h:i A" }}</span>
+                {% if event.location %}<span>📍 {{ event.location }}</span>{% endif %}
+                {% if event.participants %}<span>👥 {{ event.participants|join:", " }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty">
+            <div class="empty-icon">📭</div>
+            <div class="empty-title">No upcoming events</div>
+            <div class="empty-hint">Say "Meeting with Rahul tomorrow 3pm" on WhatsApp!</div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Reminders -->
+      <div class="section-card" id="reminders">
+        <div class="section-head">
+          <div class="section-title">⏰ Reminders</div>
+        </div>
+
+        {% if pending_reminders %}
+          {% for reminder in pending_reminders %}
+          <div class="reminder-item">
+            <span class="reminder-icon">⏰</span>
+            <div style="flex:1;min-width:0;">
+              <div class="reminder-content">{{ reminder.content }}</div>
+              <div class="reminder-time">🕐 {{ reminder.remind_at|date:"d M Y, h:i A" }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty">
+            <div class="empty-icon">✅</div>
+            <div class="empty-title">No pending reminders</div>
+            <div class="empty-hint">Say "Remind me at 5pm to call doctor" on WhatsApp!</div>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- MEMORIES -->
+    <div class="section-card" id="memories">
+      <div class="section-head">
+        <div class="section-title">🧠 Recent Memories</div>
+      </div>
+
+      {% if recent_memories %}
+        {% for mem in recent_memories %}
+        <div class="memory-item">
+          <span class="memory-icon">
+            {% if mem.source == 'image' %}📸
+            {% elif mem.source == 'voice' %}🎤
+            {% elif mem.source == 'document' %}📄
+            {% else %}💬{% endif %}
+          </span>
+          <div style="flex:1;min-width:0;">
+            <div class="memory-text">{{ mem.content_preview }}</div>
+            <div class="memory-foot">
+              <span class="memory-date">{{ mem.created_at|date:"d M Y, h:i A" }}</span>
+              {% for tag in mem.tags|slice:":3" %}
+              <span class="memory-tag">#{{ tag }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">
+          <div class="empty-icon">📭</div>
+          <div class="empty-title">No memories yet</div>
+          <div class="empty-hint">Start chatting on WhatsApp — I'll save everything!</div>
+        </div>
+      {% endif %}
+    </div>
+
+    </div><!-- /sec-overview -->
+
+    <!-- STANDALONE: MEMORIES VIEW -->
+    <div id="sec-memories" style="display:none">
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-title">🧠 Recent Memories</div>
+        </div>
+        {% if recent_memories %}
+          {% for mem in recent_memories %}
+          <div class="memory-item">
+            <span class="memory-icon">
+              {% if mem.source == 'image' %}📸
+              {% elif mem.source == 'voice' %}🎤
+              {% elif mem.source == 'document' %}📄
+              {% else %}💬{% endif %}
+            </span>
+            <div style="flex:1;min-width:0;">
+              <div class="memory-text">{{ mem.content_preview }}</div>
+              <div class="memory-foot">
+                <span class="memory-date">{{ mem.created_at|date:"d M Y, h:i A" }}</span>
+                {% for tag in mem.tags|slice:":3" %}<span class="memory-tag">#{{ tag }}</span>{% endfor %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty"><div class="empty-icon">📭</div>
+            <div class="empty-title">No memories yet</div>
+            <div class="empty-hint">Start chatting on WhatsApp — I'll save everything!</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- STANDALONE: REMINDERS VIEW -->
+    <div id="sec-reminders" style="display:none">
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-title">⏰ Reminders</div>
+        </div>
+        {% if pending_reminders %}
+          {% for reminder in pending_reminders %}
+          <div class="reminder-item">
+            <span class="reminder-icon">⏰</span>
+            <div style="flex:1;min-width:0;">
+              <div class="reminder-content">{{ reminder.content }}</div>
+              <div class="reminder-time">🕐 {{ reminder.remind_at|date:"d M Y, h:i A" }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty"><div class="empty-icon">✅</div>
+            <div class="empty-title">No pending reminders</div>
+            <div class="empty-hint">Say "Remind me at 5pm to call doctor" on WhatsApp!</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ACTIVITY TIMELINE -->
+    <div id="sec-activity" style="display:none">
+
+      <!-- Analytics Row -->
+      <div class="analytics-grid">
+        <div class="analytics-card">
+          <div class="an-num an-blue">{{ analytics.total_messages }}</div>
+          <div class="an-label">💬 Messages</div>
+        </div>
+        <div class="analytics-card">
+          <div class="an-num an-purple">{{ analytics.total_memories }}</div>
+          <div class="an-label">🧠 Memories</div>
+        </div>
+        <div class="analytics-card">
+          <div class="an-num an-yellow">{{ analytics.total_meetings }}</div>
+          <div class="an-label">📅 Meetings</div>
+        </div>
+        <div class="analytics-card">
+          <div class="an-num an-green">{{ analytics.total_reminders }}</div>
+          <div class="an-label">⏰ Reminders</div>
+        </div>
+        <div class="analytics-card">
+          <div class="an-num an-pink">{{ analytics.total_files }}</div>
+          <div class="an-label">📁 Files</div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-title">🕐 Interaction Timeline</div>
+        </div>
+
+        {% if timeline_grouped %}
+          {% for group in timeline_grouped %}
+          <div class="timeline-day">
+            <div class="timeline-date-badge">📅 {{ group.date }}</div>
+            <div class="timeline-list">
+              {% for item in group.items %}
+              <div class="tl-item">
+                <div class="tl-icon">{{ item.icon }}</div>
+                <div class="tl-body">
+                  <div class="tl-label">{{ item.label }}</div>
+                  {% if item.detail %}<div class="tl-detail">{{ item.detail }}</div>{% endif %}
+                </div>
+                <div class="tl-time">{{ item.time }}</div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty">
+            <div class="empty-icon">📭</div>
+            <div class="empty-title">No activity yet</div>
+            <div class="empty-hint">Start chatting on WhatsApp to see your timeline here!</div>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="sec-settings" style="display:none">
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-title">⚙️ Bot Settings</div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-group-title">Reminders</div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Repeat Reminder</div>
+              <div class="setting-desc">Keep sending reminder until you reply GOT IT or read it (blue tick)</div>
+            </div>
+            <div class="setting-control">
+              <label class="toggle">
+                <input type="checkbox" id="repeatToggle"
+                  {% if user.reminder_repeat_minutes > 0 %}checked{% endif %}
+                  onchange="onRepeatToggle(this)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row" id="repeatIntervalRow"
+            style="{% if user.reminder_repeat_minutes == 0 %}display:none{% endif %}">
+            <div>
+              <div class="setting-label">Repeat Every</div>
+              <div class="setting-desc">Minutes between each reminder resend (min: 1, max: 60)</div>
+            </div>
+            <div class="setting-control toggle-wrap">
+              <input type="number" class="num-input" id="repeatMinutes"
+                min="1" max="60" value="{{ user.reminder_repeat_minutes|default:5 }}">
+              <span style="font-size:.82rem;color:var(--text-dim);font-weight:700;">min</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;">
+          <button class="save-btn" onclick="saveSettings()">Save Settings</button>
+          <span class="save-status" id="saveStatus">✓ Saved!</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+/* Star canvas */
+(function(){
+  const canvas=document.getElementById('starCanvas'),ctx=canvas.getContext('2d');
+  let stars=[];
+  function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;buildStars();}
+  function buildStars(){stars=[];const n=Math.min(Math.floor(canvas.width*canvas.height/5000),300);for(let i=0;i<n;i++)stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.2+.2,a:Math.random(),da:(Math.random()*.005+.002)*(Math.random()<.5?1:-1),col:Math.random()<.1?'#ffe89a':'#ffffff'});}
+  function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);for(const s of stars){s.a+=s.da;if(s.a>=1||s.a<=.04)s.da*=-1;ctx.globalAlpha=s.a;ctx.fillStyle=s.col;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;requestAnimationFrame(draw);}
+  let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(resize,150);});
+  resize();draw();
+})();
+
+/* Theme toggle */
+function toggleTheme(){
+  const light=document.body.classList.toggle('light-mode');
+  localStorage.setItem('memorax-theme', light?'light':'dark');
+  updateThemeButtons(light);
+}
+function updateThemeButtons(light){
+  const label=light?'☀️ Light Mode':'🌙 Dark Mode';
+  const d=document.getElementById('themeBtn');
+  const m=document.getElementById('mobThemeBtn');
+  if(d)d.textContent=label;
+  if(m)m.textContent=light?'☀️':'🌙';
+}
+// Restore saved theme
+(function(){
+  const saved=localStorage.getItem('memorax-theme');
+  if(saved==='light'){document.body.classList.add('light-mode');updateThemeButtons(true);}
+})();
+
+
+/* Sidebar toggle (mobile) */
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('mob-open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('mob-open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+/* ── Section switcher ─────────────────────────────────── */
+var SECTION_IDS  = ['sec-overview','sec-memories','sec-reminders','sec-activity','sec-settings'];
+var SECTION_META = {
+  overview:  {title:'Your Dashboard ⭐',    sub:'Everything MemoRax has saved for you'},
+  memories:  {title:'🧠 Your Memories',     sub:'Everything saved from your WhatsApp chats'},
+  reminders: {title:'⏰ Your Reminders',    sub:'Upcoming reminders set via WhatsApp'},
+  activity:  {title:'📊 Activity Timeline', sub:'Your interaction history and analytics'},
+  settings:  {title:'⚙️ Settings',          sub:'Configure your MemoRax bot preferences'},
+};
+
+function showSection(view) {
+  closeSidebar();
+
+  /* hide every section */
+  SECTION_IDS.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+
+  /* show the right one */
+  var target = document.getElementById('sec-' + view);
+  if(target) target.style.display = '';
+
+  /* update header */
+  var meta = SECTION_META[view] || SECTION_META.overview;
+  document.querySelector('.page-title').textContent = meta.title;
+  document.querySelector('.page-sub').textContent   = meta.sub;
+
+  /* update active nav */
+  document.querySelectorAll('.sidebar-nav a').forEach(function(a){ a.classList.remove('active'); });
+  var navEl = document.getElementById('nav-' + view);
+  if(navEl) navEl.classList.add('active');
+
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* Hash navigation from other pages (calendar/files sidebar links) */
+(function(){
+  var hash = window.location.hash.replace('#','');
+  if(hash === 'memories' || hash === 'reminders' || hash === 'activity' || hash === 'settings'){
+    showSection(hash);
+    history.replaceState(null, '', window.location.pathname);
+  }
+})();
+
+/* ── Settings ─────────────────────────────────────────── */
+function onRepeatToggle(el){
+  var row = document.getElementById('repeatIntervalRow');
+  if(el.checked){
+    row.style.display = '';
+  } else {
+    row.style.display = 'none';
+  }
+}
+
+function saveSettings(){
+  var repeatOn  = document.getElementById('repeatToggle').checked;
+  var minutes   = parseInt(document.getElementById('repeatMinutes').value) || 5;
+  var repeat_val = repeatOn ? Math.max(1, Math.min(60, minutes)) : 0;
+
+  fetch('/dash/{{ token }}/api/settings/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+    body: JSON.stringify({reminder_repeat_minutes: repeat_val})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(data.ok){
+      var st = document.getElementById('saveStatus');
+      st.classList.add('show');
+      setTimeout(function(){ st.classList.remove('show'); }, 2500);
+    }
+  })
+  .catch(function(e){ console.error('Settings save failed', e); });
+}
+
+function getCookie(name){
+  var val = '; ' + document.cookie;
+  var parts = val.split('; ' + name + '=');
+  if(parts.length === 2) return parts.pop().split(';').shift();
+  return '';
+}
+</script>
+</body>
+</html>

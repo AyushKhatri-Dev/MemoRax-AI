@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memoroe · File Vault</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#03060f; --sidebar-bg:#060e22;
+  --blue:#5bc4ff; --blue-dark:#2a8fd4;
+  --yellow:#FFD233; --green:#4CC97A;
+  --text:#e8f4ff; --text-mid:#8ab8d8; --text-dim:#4a7090;
+  --border:rgba(91,196,255,0.12);
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+}
+html,body{height:100%;}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* SPACE BG */
+.space-bg{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 80% 60% at 15% 40%,#0c1d42 0%,#060e22 45%,#020509 100%);overflow:hidden;pointer-events:none;}
+.nebula{position:absolute;border-radius:50%;pointer-events:none;}
+.neb-1{width:55vw;height:40vw;max-width:700px;top:-8%;left:-8%;background:radial-gradient(circle,rgba(80,30,180,.12)0%,transparent 70%);filter:blur(60px);}
+.neb-2{width:45vw;height:45vw;max-width:600px;top:40%;right:-10%;background:radial-gradient(circle,rgba(0,100,200,.1)0%,transparent 70%);filter:blur(70px);}
+#starCanvas{position:absolute;inset:0;width:100%;height:100%;opacity:0.6;}
+
+/* LAYOUT */
+.layout{position:relative;z-index:1;margin-left:240px;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;z-index:300;background:#0a1733;border-right:1px solid var(--border);box-shadow:4px 0 24px rgba(0,0,0,.5);display:flex;flex-direction:column;padding:24px 16px;}
+.sidebar-logo{font-family:'Baloo 2',cursive;font-size:1.5rem;font-weight:800;color:var(--yellow);display:flex;align-items:center;gap:8px;text-shadow:0 0 20px rgba(255,210,51,.4);margin-bottom:24px;text-decoration:none;}
+.logo-star{animation:logoPulse 4s ease-in-out infinite;}
+@keyframes logoPulse{0%,100%{filter:drop-shadow(0 0 4px #FFD233);}50%{filter:drop-shadow(0 0 14px #FFD233);}}
+.sidebar-user{background:rgba(91,196,255,.07);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:24px;}
+.sidebar-user-name{font-weight:800;font-size:.95rem;color:var(--text);margin-bottom:2px;}
+.sidebar-user-plan{font-size:.73rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px;}
+.sidebar-nav{flex:1;}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;color:var(--text-mid);font-weight:700;font-size:.9rem;text-decoration:none;transition:all .2s;margin-bottom:3px;}
+.sidebar-nav a:hover{background:rgba(91,196,255,.1);color:var(--blue);}
+.sidebar-nav a.active{background:rgba(91,196,255,.15);color:var(--blue);border:1px solid rgba(91,196,255,.2);}
+.sidebar-nav a .nav-icon{font-size:1.1rem;width:22px;text-align:center;flex-shrink:0;}
+.sidebar-footer{font-size:.72rem;color:var(--text-dim);font-weight:700;text-align:center;padding-top:16px;border-top:1px solid var(--border);}
+
+/* MAIN */
+.main{padding:32px;min-width:0;}
+.page-header{margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.page-title{font-family:'Baloo 2',cursive;font-size:1.8rem;font-weight:800;color:var(--text);}
+.page-sub{font-size:.88rem;color:var(--text-mid);font-weight:600;margin-top:4px;}
+
+/* FILTER TABS */
+.filter-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;}
+.tab-btn{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text-mid);font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;padding:7px 16px;border-radius:20px;cursor:pointer;transition:all .2s;}
+.tab-btn:hover{background:rgba(91,196,255,.1);color:var(--blue);}
+.tab-btn.active{background:rgba(91,196,255,.15);color:var(--blue);border-color:rgba(91,196,255,.3);}
+
+/* STATS ROW */
+.stats-row{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
+.stat-pill{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:10px 18px;display:flex;align-items:center;gap:8px;}
+.stat-pill-num{font-family:'Baloo 2',cursive;font-size:1.3rem;font-weight:800;}
+.stat-pill-label{font-size:.78rem;color:var(--text-dim);font-weight:700;}
+.num-blue{background:linear-gradient(135deg,var(--blue),var(--blue-dark));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.num-green{background:linear-gradient(135deg,var(--green),#22c55e);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.num-purple{background:linear-gradient(135deg,#a78bfa,#7c3aed);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.num-yellow{background:linear-gradient(135deg,var(--yellow),#ff9f00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+/* FILES GRID */
+.files-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;}
+
+/* FILE CARD */
+.file-card{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s var(--ease-spring),background .2s,border-color .2s;cursor:pointer;}
+.file-card:hover{transform:translateY(-4px);background:rgba(255,255,255,.07);border-color:rgba(91,196,255,.25);}
+.file-thumb{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:#0a1733;}
+.file-thumb-placeholder{width:100%;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;font-size:3rem;background:rgba(91,196,255,.05);}
+.file-info{padding:14px;}
+.file-name{font-weight:800;font-size:.88rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;}
+.file-caption{font-size:.78rem;color:var(--text-mid);font-weight:600;line-height:1.4;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.file-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+.file-type-badge{font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;}
+.badge-image{background:rgba(91,196,255,.15);color:var(--blue);}
+.badge-pdf{background:rgba(248,113,113,.15);color:#f87171;}
+.badge-note{background:rgba(74,197,122,.15);color:var(--green);}
+.badge-other{background:rgba(167,139,250,.15);color:#a78bfa;}
+.file-date{font-size:.7rem;color:var(--text-dim);font-weight:600;}
+.file-actions{display:flex;gap:6px;margin-top:10px;}
+.btn-action{flex:1;background:rgba(91,196,255,.08);border:1px solid rgba(91,196,255,.15);color:var(--blue);font-family:'Nunito',sans-serif;font-weight:700;font-size:.75rem;padding:6px 10px;border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;text-decoration:none;display:inline-block;}
+.btn-action:hover{background:rgba(91,196,255,.18);}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:64px 16px;}
+.empty-icon{font-size:3.5rem;margin-bottom:16px;}
+.empty-title{font-size:1.1rem;color:var(--text-mid);font-weight:800;margin-bottom:8px;}
+.empty-hint{font-size:.85rem;color:var(--text-dim);font-weight:600;line-height:1.6;}
+.empty-hint code{background:rgba(91,196,255,.1);color:var(--blue);padding:2px 8px;border-radius:6px;font-family:monospace;}
+
+/* LIGHTBOX */
+.lightbox{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.88);align-items:center;justify-content:center;padding:20px;}
+.lightbox.open{display:flex;}
+.lightbox-inner{background:#0a1733;border:1px solid var(--border);border-radius:20px;max-width:700px;width:100%;max-height:90vh;overflow:auto;}
+.lightbox-img{width:100%;max-height:55vh;object-fit:contain;display:block;border-radius:16px 16px 0 0;background:#060e22;}
+.lightbox-body{padding:20px;}
+.lightbox-title{font-family:'Baloo 2',cursive;font-size:1.1rem;font-weight:800;color:var(--text);margin-bottom:6px;}
+.lightbox-desc{font-size:.85rem;color:var(--text-mid);font-weight:600;line-height:1.55;margin-bottom:14px;}
+.lightbox-actions{display:flex;gap:10px;flex-wrap:wrap;}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;font-family:'Nunito',sans-serif;font-weight:800;font-size:.85rem;padding:10px 20px;border-radius:12px;border:none;cursor:pointer;text-decoration:none;display:inline-block;}
+.btn-secondary{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text-mid);font-family:'Nunito',sans-serif;font-weight:800;font-size:.85rem;padding:10px 20px;border-radius:12px;cursor:pointer;}
+.lightbox-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-mid);font-size:1.2rem;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+/* MOBILE HEADER */
+.mob-header{display:none;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(6,14,34,.95);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);}
+.mob-logo{font-family:'Baloo 2',cursive;font-size:1.3rem;font-weight:800;color:var(--yellow);}
+.mob-toggle{background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-mid);font-size:1.2rem;width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.sidebar-overlay{display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);}
+.sidebar-overlay.open{display:block;}
+.sidebar.mob-open{transform:translateX(0)!important;}
+
+/* LOADING */
+.loader{display:flex;justify-content:center;padding:48px;}
+.spinner{width:36px;height:36px;border:3px solid rgba(91,196,255,.15);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+@media(max-width:680px){
+  .mob-header{display:flex;}
+  .sidebar{transform:translateX(-100%);transition:transform .3s var(--ease-spring);}
+  .layout{margin-left:0;}
+  .main{padding:20px 16px;}
+  .files-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
+  .stats-row{gap:8px;}
+}
+</style>
+</head>
+<body>
+
+<div class="space-bg">
+  <div class="nebula neb-1"></div>
+  <div class="nebula neb-2"></div>
+  <canvas id="starCanvas"></canvas>
+</div>
+
+<!-- Mobile header -->
+<div class="mob-header">
+  <span class="mob-logo">⭐ Memoroe</span>
+  <button class="mob-toggle" onclick="toggleSidebar()">☰</button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <a href="/" class="sidebar-logo"><span class="logo-star">⭐</span> Memoroe</a>
+
+  <div class="sidebar-user">
+    <div class="sidebar-user-name">👋 {{ user.name|default:"Friend" }}</div>
+    <div class="sidebar-user-plan">{{ user.tier|upper }} Plan</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="/dash/{{ token }}/" onclick="closeSidebar()">
+      <span class="nav-icon">🏠</span> Overview
+    </a>
+    <a href="/dash/{{ token }}/calendar/" onclick="closeSidebar()">
+      <span class="nav-icon">📅</span> Calendar
+    </a>
+    <a href="/dash/{{ token }}/#memories" onclick="closeSidebar()">
+      <span class="nav-icon">🧠</span> Memories
+    </a>
+    <a href="/dash/{{ token }}/#reminders" onclick="closeSidebar()">
+      <span class="nav-icon">⏰</span> Reminders
+    </a>
+    <a href="/dash/{{ token }}/files/" class="active" onclick="closeSidebar()">
+      <span class="nav-icon">📁</span> File Vault
+    </a>
+    <a href="/dash/{{ token }}/#activity" onclick="closeSidebar()">
+      <span class="nav-icon">📊</span> Activity
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">Memoroe AI · Your memory on WhatsApp</div>
+</aside>
+
+<div class="layout">
+  <main class="main">
+
+    <div class="page-header">
+      <div>
+        <div class="page-title">📁 File Vault</div>
+        <div class="page-sub">All your images, PDFs & notes in one place</div>
+      </div>
+    </div>
+
+    <!-- Stats pills -->
+    <div class="stats-row" id="statsRow">
+      <div class="stat-pill">
+        <span class="stat-pill-num num-blue" id="countAll">—</span>
+        <span class="stat-pill-label">Total Files</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-pill-num num-green" id="countImages">—</span>
+        <span class="stat-pill-label">📸 Images</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-pill-num num-purple" id="countPdfs">—</span>
+        <span class="stat-pill-label">📄 PDFs</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-pill-num num-yellow" id="countNotes">—</span>
+        <span class="stat-pill-label">📝 Notes</span>
+      </div>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="filter-tabs">
+      <button class="tab-btn active" onclick="filterFiles('all', this)">All</button>
+      <button class="tab-btn" onclick="filterFiles('image', this)">📸 Images</button>
+      <button class="tab-btn" onclick="filterFiles('pdf', this)">📄 PDFs</button>
+      <button class="tab-btn" onclick="filterFiles('note', this)">📝 Notes</button>
+      <button class="tab-btn" onclick="filterFiles('other', this)">📎 Other</button>
+    </div>
+
+    <!-- Files grid -->
+    <div id="filesContainer">
+      <div class="loader"><div class="spinner"></div></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <div class="lightbox-inner" id="lightboxInner" style="position:relative;">
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    <div id="lightboxContent"></div>
+  </div>
+</div>
+
+<script>
+/* ── Stars ── */
+(function(){
+  const canvas=document.getElementById('starCanvas'),ctx=canvas.getContext('2d');
+  let stars=[];
+  function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;buildStars();}
+  function buildStars(){stars=[];const n=Math.min(Math.floor(canvas.width*canvas.height/5000),300);for(let i=0;i<n;i++)stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.2+.2,a:Math.random(),da:(Math.random()*.005+.002)*(Math.random()<.5?1:-1),col:Math.random()<.1?'#ffe89a':'#ffffff'});}
+  function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);for(const s of stars){s.a+=s.da;if(s.a>=1||s.a<=.04)s.da*=-1;ctx.globalAlpha=s.a;ctx.fillStyle=s.col;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;requestAnimationFrame(draw);}
+  let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(resize,150);});
+  resize();draw();
+})();
+
+/* ── Sidebar ── */
+function closeSidebar(){document.getElementById('sidebar').classList.remove('mob-open');document.getElementById('sidebarOverlay').classList.remove('open');}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('mob-open');document.getElementById('sidebarOverlay').classList.toggle('open');}
+
+/* ── File data ── */
+let allFiles = [];
+let currentFilter = 'all';
+
+const TYPE_ICON = {image:'📸', pdf:'📄', note:'📝', other:'📎'};
+const TYPE_BADGE = {image:'badge-image', pdf:'badge-pdf', note:'badge-note', other:'badge-other'};
+
+async function loadFiles(type) {
+  const url = `/dash/{{ token }}/api/files/${type && type !== 'all' ? '?type=' + type : ''}`;
+  try {
+    const resp = await fetch(url);
+    allFiles = await resp.json();
+    renderFiles(allFiles);
+    updateStats();
+  } catch(e) {
+    document.getElementById('filesContainer').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Couldn't load files</div></div>`;
+  }
+}
+
+function updateStats() {
+  fetch(`/dash/{{ token }}/api/files/`).then(r=>r.json()).then(all => {
+    document.getElementById('countAll').textContent = all.length;
+    document.getElementById('countImages').textContent = all.filter(f=>f.file_type==='image').length;
+    document.getElementById('countPdfs').textContent = all.filter(f=>f.file_type==='pdf').length;
+    document.getElementById('countNotes').textContent = all.filter(f=>f.file_type==='note').length;
+  });
+}
+
+function renderFiles(files) {
+  const container = document.getElementById('filesContainer');
+  if (!files.length) {
+    container.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">No files yet</div>
+        <div class="empty-hint">
+          Send an image or PDF on WhatsApp and it'll appear here.<br><br>
+          You can also send <code>/files</code> on WhatsApp to open this page directly.
+        </div>
+      </div>`;
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'files-grid';
+  files.forEach(f => {
+    const card = document.createElement('div');
+    card.className = 'file-card';
+    card.onclick = () => openLightbox(f);
+
+    const isImage = f.file_type === 'image';
+    const thumb = isImage
+      ? `<img class="file-thumb" src="${f.url}" alt="${f.name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+         <div class="file-thumb-placeholder" style="display:none">${TYPE_ICON[f.file_type]||'📎'}</div>`
+      : `<div class="file-thumb-placeholder">${TYPE_ICON[f.file_type]||'📎'}</div>`;
+
+    const badgeClass = TYPE_BADGE[f.file_type] || 'badge-other';
+    const desc = f.ai_description || f.caption || '';
+
+    card.innerHTML = `
+      ${thumb}
+      <div class="file-info">
+        <div class="file-name" title="${f.name}">${f.name}</div>
+        ${desc ? `<div class="file-caption">${desc}</div>` : ''}
+        <div class="file-meta">
+          <span class="file-type-badge ${badgeClass}">${f.file_type}</span>
+          <span class="file-date">${f.created_at}</span>
+        </div>
+        <div class="file-actions">
+          <a class="btn-action" href="${f.url}" target="_blank" onclick="event.stopPropagation()">⬇ Open</a>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+  container.innerHTML = '';
+  container.appendChild(grid);
+}
+
+function filterFiles(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadFiles(type);
+}
+
+/* ── Lightbox ── */
+function openLightbox(f) {
+  const isImage = f.file_type === 'image';
+  const desc = f.ai_description || f.caption || 'No description available.';
+  const content = `
+    ${isImage ? `<img class="lightbox-img" src="${f.url}" alt="${f.name}" onerror="this.style.display='none'">` : `<div class="file-thumb-placeholder" style="aspect-ratio:16/5;border-radius:16px 16px 0 0">${TYPE_ICON[f.file_type]||'📎'}</div>`}
+    <div class="lightbox-body">
+      <div class="lightbox-title">${f.name}</div>
+      ${f.caption ? `<div style="font-size:.78rem;color:var(--text-dim);font-weight:700;margin-bottom:4px">Caption: ${f.caption}</div>` : ''}
+      <div class="lightbox-desc">${desc}</div>
+      <div style="font-size:.72rem;color:var(--text-dim);font-weight:600;margin-bottom:14px">Saved: ${f.created_at}</div>
+      <div class="lightbox-actions">
+        <a class="btn-primary" href="${f.url}" target="_blank" download>⬇ Download</a>
+        <a class="btn-primary" href="${f.url}" target="_blank">🔗 Open</a>
+        <button class="btn-secondary" onclick="closeLightbox()">Close</button>
+      </div>
+    </div>`;
+  document.getElementById('lightboxContent').innerHTML = content;
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox(e) {
+  if (e && e.target !== document.getElementById('lightbox')) return;
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Initial load
+loadFiles('all');
+</script>
+</body>
+</html>
