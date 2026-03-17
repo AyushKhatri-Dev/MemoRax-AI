@@ -6,7 +6,6 @@ import uuid
 import logging
 import requests
 from datetime import datetime, timedelta
-from typing import Optional
 
 from groq import Groq
 from django.conf import settings
@@ -291,24 +290,39 @@ Recent Conversation:
         # ── STEP 0: File/media send intent — checked BEFORE question patterns ──
         # "send my X", "bhejo meri X", "show me my photo", etc. → always IMAGE_RETRIEVE
         send_triggers = [
-            "send my", "send me my", "send me the", "bhejo meri", "bhejo mera",
-            "bhejo mere", "bhejo", "mujhe bhejo", "mujhe de do", "mujhe do",
-            "woh bhejo", "wapis bhejo", "wapas bhejo", "retrieve my",
-            "get my file", "get my photo", "get my image", "get my doc",
-            "show my", "show me my",
+            "send my", "send me my", "send me the", "send the", "send photo", "send image", "send file", "send pdf",
+            "bhejo meri", "bhejo mera", "bhejo mere", "bhejo", "mujhe bhejo", "mujhe de do", "mujhe do",
+            "woh bhejo", "wapis bhejo", "wapas bhejo", "retrieve my", "retrieve the",
+            "get my file", "get my photo", "get my image", "get my doc", "get the photo", "get the file",
+            "show my", "show me my", "show photo", "show the photo", "show image", "show the image",
+            "give me photo", "give me the photo", "give me image", "give my photo",
+            "pull up", "fetch my", "fetch the", "find my", "find the photo", "find the image",
         ]
+        
+        # Check if it's a file request - also check for image/file words
+        image_file_words = ["photo", "image", "file", "doc", "pdf", "picture", "pic", "vault", "attachment"]
+        action_words = ["send", "show", "give", "get", "fetch", "pull", "retrieve", "bhejo", "dikhao", "dikha", "de do", "wapas"]
+        
+        has_action = any(action in msg for action in action_words)
+        has_file_word = any(word in msg for word in image_file_words)
+        
+        # Direct trigger match
         for trigger in send_triggers:
             if trigger in msg:
                 return "IMAGE_RETRIEVE"
+        
+        # Smart match: action word + file word = file request
+        if has_action and has_file_word:
+            return "IMAGE_RETRIEVE"
 
-        # ── STEP 1: Question/retrieval indicators (checked FIRST before everything else) ──
-        # These patterns mean user is ASKING about existing data → always QUERY
+        # ── STEP 1: Question/retrieval indicators ──
+        # These patterns mean user is ASKING about existing data → QUERY
         question_patterns = [
             # English questions
             "what was", "what is", "what are", "what were",
             "when is", "when was", "when are", "when were",
             "where is", "where was", "do i have", "did i", "have i",
-            "how many", "how much", "how often", "tell me", "show me",
+            "how many", "how much", "how often", "tell me",
             "find my", "search for", "list my", "what do i",
             # Hindi/Hinglish questions
             "kya hai", "kya tha", "kya hain", "kya the",
@@ -320,7 +334,6 @@ Recent Conversation:
             "koi hai kya", "hai kya", "hain kya", "hua hai kya",
             "hui hai kya", "hue hain", "hua tha", "hui thi",
             "batao", "bata do", "bata de", "bta do",
-            "dikhao", "dikha do", "dikha de",
             "kaun si", "kaun sa", "konsi", "konsa",
             "mujhe kya pasand", "tumhe kya pasand", "usse kya pasand",
         ]
@@ -328,8 +341,8 @@ Recent Conversation:
             if qp in msg:
                 return "QUERY"
 
-        # Questions ending with ?
-        if msg.endswith("?"):
+        # Questions ending with ? (but NOT if it's a file request)
+        if msg.endswith("?") and not (has_action and has_file_word):
             return "QUERY"
 
         # ── STEP 2: IMAGE_RETRIEVE — broader keyword match ──
@@ -742,8 +755,8 @@ Recent Conversation:
     # ===========================
     # IMAGE ANALYSIS (Gemini Vision)
     # ===========================
-    def analyze_image(self, user: BotUser, image_url: str, media_type: str, caption: str = "") -> str:
-        """Download image from Twilio, analyze with Groq Vision (Llama), save as memory"""
+    def analyze_image(self, user: BotUser, image_url: str, media_type: str, caption: str = "") -> dict:
+        """Download image from Twilio, analyze with Groq Vision (Llama), save as memory, and return image data"""
         # Download image from Twilio (requires auth)
         try:
             response = requests.get(
@@ -755,7 +768,10 @@ Recent Conversation:
             image_bytes = response.content
         except Exception as e:
             logger.error(f"Image download error: {e}")
-            return "Sorry, I couldn't download the image. Please try again."
+            return {
+                "success": False,
+                "message": "Sorry, I couldn't download the image. Please try again."
+            }
 
         # Save image locally for later retrieval
         import os
@@ -792,9 +808,21 @@ Recent Conversation:
             else:
                 image_format = 'JPEG'  # default fallback
 
-            prompt = "Describe this image in detail in 2-3 concise sentences, useful for later recall."
-            if caption:
-                prompt += f" The user also said: '{caption}'. Include that context."
+            # Build detailed prompt for image analysis
+            user_context = caption if caption else 'No caption provided'
+            prompt = f"""Analyze this image in EXTREME DETAIL for accurate retrieval later. Include:
+
+1. **Main Objects/Subjects**: Identify ALL visible objects, devices, phones, items. If it's a phone, identify the EXACT MODEL (OnePlus, Poco, iPhone, Samsung, etc.) and distinctive features (camera design, shape, color).
+2. **Brand/Model Names**: If any branded product is visible, state the exact brand name and model number.
+3. **Colors & Materials**: Specific colors, metallic/plastic/glass finishes.
+4. **Distinctive Features**: Unique design elements, camera layout (single/dual/triple lens), button placement, notch/punch-hole.
+5. **Text Visible**: Any readable text, labels, model numbers, serial numbers.
+6. **Setting/Context**: Where is this? indoors/outdoors, room type, background items.
+7. **Notable Details**: Anything that makes this photo UNIQUE and searchable - scratches, dents, stickers, accessories.
+
+User Note: {user_context}
+
+Format as a detailed searchable description (5-7 sentences). Focus on SPECIFIC, IDENTIFIABLE details that will help find this exact image when user asks."""
 
             # Call Groq Vision API (Llama 4 Scout - latest multimodal model)
             vision_response = self.groq.chat.completions.create(
@@ -817,7 +845,7 @@ Recent Conversation:
                     }
                 ],
                 temperature=0.7,
-                max_tokens=300
+                max_tokens=500
             )
             description = vision_response.choices[0].message.content.strip()
         except Exception as e:
@@ -825,8 +853,15 @@ Recent Conversation:
             # Fallback: save with caption only
             if caption:
                 result = self.save_memory(user, f"[Image] {caption}", source="image", media_path=relative_path)
-                return f"📸 Image saved with your caption: \"{caption}\"\n\nNote: Couldn't analyze image automatically."
-            return "Sorry, I couldn't analyze the image. Try adding a caption to describe it."
+                return {
+                    "success": True,
+                    "media_path": relative_path,
+                    "description": f"📸 {caption}\n\n_AI analysis unavailable, but image saved._"
+                }
+            return {
+                "success": False,
+                "message": "Sorry, I couldn't analyze the image. Try adding a caption to describe it."
+            }
 
         # Save as memory with local image path
         memory_content = f"[Image: {caption}] {description}" if caption else f"[Image] {description}"
@@ -843,13 +878,20 @@ Recent Conversation:
         )
 
         if result["success"]:
-            return f"📸 Got it! Here's what I see:\n\n{description}\n\n✅ Saved to your memories & vault."
-        return result["message"]
+            return {
+                "success": True,
+                "media_path": relative_path,
+                "description": f"📸 *Image saved!*\n\n{description}\n\n_Say \"send my image\" anytime to get it back._"
+            }
+        return {
+            "success": False,
+            "message": "❌ Image downloaded but couldn't save to memory. Please try again."
+        }
 
     # ===========================
     # VOICE TRANSCRIPTION (Groq Whisper)
     # ===========================
-    def transcribe_voice(self, user: BotUser, audio_url: str, caption: str = "") -> str:
+    def transcribe_voice(self, user: BotUser, audio_url: str, caption: str = ""):
         """Download voice note from Twilio, transcribe with Groq Whisper, save as memory"""
         # Download audio from Twilio (requires auth)
         try:
@@ -862,7 +904,10 @@ Recent Conversation:
             audio_bytes = response.content
         except Exception as e:
             logger.error(f"Audio download error: {e}")
-            return "Sorry, I couldn't download the voice note. Please try again."
+            return {
+                "success": False,
+                "message": "Sorry, I couldn't download the voice note. Please try again."
+            }
 
         # Transcribe with Groq Whisper
         try:
@@ -886,10 +931,23 @@ Recent Conversation:
 
         except Exception as e:
             logger.error(f"Groq Whisper error: {e}")
-            return "Sorry, I couldn't transcribe the voice note. Please try again."
+            return {
+                "success": False,
+                "message": "Sorry, I couldn't transcribe the voice note. Please try again."
+            }
 
         # Process transcribed text through smart_chat for intent detection
         response = self.smart_chat(user, transcribed_text)
+        
+        # If response is a dict (e.g., image retrieval), return it with voice prefix
+        if isinstance(response, dict):
+            if response.get("success") and response.get("media_path"):
+                # Update description to include voice context
+                updated_desc = f"🎤 Voice: \"{transcribed_text}\"\n\n{response.get('description', '')}"
+                response["description"] = updated_desc
+            return response
+        
+        # Otherwise, it's a string response
         return f"🎤 Voice note: \"{transcribed_text}\"\n\n{response}"
 
     # ===========================
@@ -934,6 +992,12 @@ Recent Conversation:
             if h24_match:
                 hour = int(h24_match.group(1))
                 minute = int(h24_match.group(2))
+
+        # Validate hour is in valid range
+        if hour is not None and (hour < 0 or hour > 23):
+            hour = None
+        if minute is not None and (minute < 0 or minute > 59):
+            minute = 0
 
         if hour is None:
             # Default: 1 hour from now
@@ -1004,38 +1068,109 @@ Recent Conversation:
     # ===========================
     # FILE / IMAGE RETRIEVAL
     # ===========================
+    def _detect_document_type(self, text: str) -> str:
+        """Detect document type from content"""
+        text_lower = text.lower()
+        
+        # Detect common document types
+        if any(word in text_lower for word in ['invoice', 'bill', 'amount', 'total due']):
+            return "Invoice/Bill"
+        elif any(word in text_lower for word in ['receipt', 'transaction', 'payment']):
+            return "Receipt"
+        elif any(word in text_lower for word in ['student', 'grade', 'marks', 'score', 'class']):
+            return "Academic Document"
+        elif any(word in text_lower for word in ['certificate', 'certified', 'awarded']):
+            return "Certificate"
+        elif any(word in text_lower for word in ['prescription', 'medicine', 'doctor', 'hospital']):
+            return "Medical Document"
+        elif any(word in text_lower for word in ['contract', 'agreement', 'terms', 'conditions']):
+            return "Legal Document"
+        elif any(word in text_lower for word in ['syllabus', 'course', 'lecture', 'chapter']):
+            return "Educational Material"
+        elif any(word in text_lower for word in ['resume', 'cv', 'experience', 'qualification']):
+            return "Resume/CV"
+        else:
+            return "Document"
+
     def retrieve_image(self, user: BotUser, query: str) -> dict:
-        """Find and return any saved file (image, PDF, doc) matching the query"""
+        """Find and return saved files (images, PDFs) matching the query with ENHANCED search"""
         import os
+        import re
 
-        # 1. First try SavedFile vault — search by name/caption/description
-        q = query.lower()
-        vault_files = SavedFile.objects.filter(user=user)
-        best_vault = None
-        for f in vault_files:
-            haystack = f" {f.name} {f.caption} {f.ai_description} ".lower()
-            # score: count matching words
-            words = [w for w in q.split() if len(w) > 2]
-            score = sum(1 for w in words if w in haystack)
-            if score > 0:
-                if best_vault is None or score > best_vault[1]:
-                    best_vault = (f, score)
-
-        if best_vault:
-            f = best_vault[0]
+        q = query.lower().strip()
+        vault_files = list(SavedFile.objects.filter(user=user))
+        
+        if not vault_files:
             return {
-                "success": True,
-                "media_path": f.file_path,
-                "description": f.caption or f.ai_description or f.name,
+                "success": False,
+                "message": "📭 No matching files found.\n\nSend me an image or PDF first — I'll save it to your vault!",
             }
 
-        # 2. Fallback: semantic search in ChromaDB (images + documents)
+        # ══════════════════════════════════════════════════════════════
+        # STAGE 1: KEYWORD MATCHING (High Priority)
+        # ══════════════════════════════════════════════════════════════
+        scored_files = []
+        
+        # Extract important keywords from query
+        # Check for brand names first (OnePlus, Poco, iPhone, Samsung, etc.)
+        brand_names = ["oneplus", "1+", "poco", "iphone", "samsung", "nokia", "motorola", 
+                       "realme", "oppo", "vivo", "sony", "lg", "google pixel"]
+        query_brands = [b for b in brand_names if b in q]
+        
+        # Model/feature keywords
+        feature_keywords = ["camera", "screen", "display", "battery", "processor", "color", 
+                          "design", "notch", "lens", "metallic", "glass", "plastic"]
+        query_features = [f for f in feature_keywords if f in q]
+        
+        for f in vault_files:
+            haystack = f" {f.name} {f.caption} {f.ai_description} ".lower()
+            score = 0
+            
+            # 1. Brand name matching (high weight)
+            for brand in query_brands:
+                if brand in haystack:
+                    score += 50  # High priority
+            
+            # 2. Feature/detail matching (medium weight)
+            for feature in query_features:
+                if feature in haystack:
+                    score += 20
+            
+            # 3. General word matching (low weight)
+            words = [w for w in q.split() if len(w) > 2 and w not in query_brands and w not in query_features]
+            for word in words:
+                if word in haystack:
+                    score += 5
+                # Also check for word substrings (e.g., "phone" matches "smartphone")
+                if word in haystack or haystack.count(word) > 0:
+                    score += 2
+            
+            if score > 0:
+                scored_files.append((f, score))
+        
+        # Sort by score
+        scored_files.sort(key=lambda x: x[1], reverse=True)
+        
+        if scored_files and scored_files[0][1] > 0:
+            best_file = scored_files[0][0]
+            return {
+                "success": True,
+                "media_path": best_file.file_path,
+                "description": best_file.caption or best_file.ai_description or best_file.name,
+            }
+
+        # ══════════════════════════════════════════════════════════════
+        # STAGE 2: SEMANTIC SEARCH (ChromaDB)
+        # ══════════════════════════════════════════════════════════════
         try:
+            # Search with larger k value to get more results
             results = self.vectorstore.similarity_search(
                 query,
-                k=5,
+                k=10,  # Get more results for better matching
                 filter={"user_phone": user.phone}
             )
+            
+            # Return first match with media path
             for res in results:
                 src = res.metadata.get("source", "")
                 if src in ("image", "document"):
@@ -1051,15 +1186,18 @@ Recent Conversation:
                     except Memory.DoesNotExist:
                         continue
         except Exception as e:
-            logger.error(f"File search error: {e}")
+            logger.error(f"Semantic search error: {e}")
 
-        # 3. Last resort: most recent file in vault
-        recent = SavedFile.objects.filter(user=user).first()
+        # ══════════════════════════════════════════════════════════════
+        # STAGE 3: FALLBACK (Most Recent File)
+        # ══════════════════════════════════════════════════════════════
+        # Get most recent as last resort
+        recent = SavedFile.objects.filter(user=user).order_by('-created_at').first()
         if recent:
             return {
                 "success": True,
                 "media_path": recent.file_path,
-                "description": recent.caption or recent.name,
+                "description": f"📁 Latest: {recent.caption or recent.name}",
             }
 
         return {
@@ -1070,8 +1208,8 @@ Recent Conversation:
     # ===========================
     # DOCUMENT / PDF SAVE
     # ===========================
-    def save_document(self, user: BotUser, doc_url: str, media_type: str, caption: str = "") -> str:
-        """Download PDF/document from Twilio and save to vault + memory"""
+    def save_document(self, user: BotUser, doc_url: str, media_type: str, caption: str = "") -> dict:
+        """Download PDF/document from Twilio and save to vault + memory, return document data"""
         import os
 
         # Download from Twilio
@@ -1085,7 +1223,10 @@ Recent Conversation:
             doc_bytes = response.content
         except Exception as e:
             logger.error(f"Document download error: {e}")
-            return "❌ Couldn't download the document. Please try again."
+            return {
+                "success": False,
+                "message": "❌ Couldn't download the document. Please try again."
+            }
 
         # Determine extension
         ext = 'pdf' if 'pdf' in media_type else media_type.split('/')[-1].lower() or 'bin'
@@ -1103,20 +1244,36 @@ Recent Conversation:
 
         # Try to extract text from PDF for memory search
         text_preview = caption or filename
+        document_summary = ""
         try:
             import io
             import PyPDF2
             pdf_reader = PyPDF2.PdfReader(io.BytesIO(doc_bytes))
-            extracted = " ".join(
-                page.extract_text() or "" for page in pdf_reader.pages[:3]
-            ).strip()
+            
+            # Extract text from first 5 pages (more comprehensive)
+            extracted_pages = []
+            for i, page in enumerate(pdf_reader.pages[:5]):
+                page_text = page.extract_text() or ""
+                if page_text.strip():
+                    extracted_pages.append(page_text)
+            
+            extracted = " ".join(extracted_pages).strip()
+            
             if extracted:
-                text_preview = extracted[:500]
-        except Exception:
+                # Use full extracted text for semantic search (up to 2000 chars)
+                text_preview = extracted[:2000]
+                
+                # Create a summary focusing on key info
+                document_summary = f"""PDF Document: {filename}
+{f'Caption: {caption}' if caption else ''}
+Document Type: {self._detect_document_type(extracted)}
+Key Content: {extracted[:500]}"""
+        except Exception as e:
+            logger.error(f"PDF extraction error: {e}")
             pass  # No PyPDF2 or unreadable — that's fine
 
         # Save memory for semantic search
-        memory_content = f"[Document: {caption or filename}] {text_preview}"
+        memory_content = document_summary if document_summary else f"[Document: {caption or filename}] {text_preview}"
         self.save_memory(user, memory_content, source="document", media_path=relative_path)
 
         # Save to vault
@@ -1129,15 +1286,12 @@ Recent Conversation:
             ai_description=text_preview[:300],
         )
 
-        base_url = getattr(settings, 'BASE_URL', 'http://localhost:8000')
-        file_url = f"{base_url}/media/{relative_path}"
-        return (
-            f"📄 Document saved!\n\n"
-            f"📎 *{filename}*\n"
-            f"{('📝 Caption: ' + caption + chr(10)) if caption else ''}"
-            f"\n🔗 View: {file_url}\n\n"
-            f"_Access all your files in the dashboard._"
-        )
+        description = f"📄 *{filename}*\n{('Caption: ' + caption + chr(10)) if caption else ''}✅ Saved to your vault!"
+        return {
+            "success": True,
+            "media_path": relative_path,
+            "description": description
+        }
 
     # ===========================
     # CALENDAR EVENT CREATION

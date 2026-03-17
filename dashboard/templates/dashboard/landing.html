@@ -353,6 +353,7 @@ body.light-mode .modal-spinner{border-color:rgba(0,102,204,.2);border-top-color:
     </ul>
     <div class="nav-right">
       <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
+      <button class="nav-cta" onclick="openLoginModal()" style="background:rgba(91,196,255,.15);margin-right:8px">🔐 Login</button>
       <button class="nav-cta" onclick="openModal()">Connect to WhatsApp</button>
       <button class="hamburger" id="hamburger" aria-label="Menu">
         <span></span><span></span><span></span>
@@ -365,6 +366,7 @@ body.light-mode .modal-spinner{border-color:rgba(0,102,204,.2);border-top-color:
     <a href="#how" class="mob-nav-link" onclick="closeMobileMenu()">📚 How it Works</a>
     <a href="#features" class="mob-nav-link" onclick="closeMobileMenu()">⭐ Features</a>
     <a href="#testimonials" class="mob-nav-link" onclick="closeMobileMenu()">💬 Reviews</a>
+    <button class="mob-cta" onclick="closeMobileMenu();openLoginModal()" style="background:rgba(91,196,255,.3);margin-bottom:8px">🔐 Login</button>
     <button class="mob-cta" onclick="closeMobileMenu();openModal()">🟢 Connect to WhatsApp</button>
   </div>
 
@@ -421,6 +423,18 @@ body.light-mode .modal-spinner{border-color:rgba(0,102,204,.2);border-top-color:
         <button class="btn-whatsapp" onclick="openModal()">🟢 Connect to WhatsApp</button>
         <a href="#how" class="btn-secondary">▶ How it works</a>
       </div>
+      
+      <!-- Quick Join Info -->
+      <div id="quickJoinInfo" style="margin-top:28px;padding:18px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);border-radius:14px;text-align:center">
+        <div style="font-size:.85rem;color:var(--text-mid);margin-bottom:10px;font-weight:600">💬 Or send this code directly:</div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center">
+          <div style="background:rgba(37,211,102,.15);padding:8px 14px;border-radius:9px;font-family:monospace;font-weight:700;color:var(--blue);font-size:.9rem" id="quickWANumber">+14155238886</div>
+          <span style="color:var(--text-dim)">→</span>
+          <div style="background:rgba(91,196,255,.12);padding:8px 14px;border-radius:9px;font-family:monospace;font-weight:700;color:var(--blue);font-size:.9rem" id="quickJoinCode">join on-largest</div>
+          <button style="background:rgba(91,196,255,.15);border:1px solid rgba(91,196,255,.3);color:var(--text-bright);padding:6px 14px;border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .2s" onclick="copyQuickJoinInfo()">📋 Copy All</button>
+        </div>
+      </div>
+      
       <div class="hero-stats">
         <div class="stat"><div class="stat-num">∞</div><div class="stat-label">Memories</div></div>
         <div class="stat"><div class="stat-num">AI</div><div class="stat-label">Groq Powered</div></div>
@@ -540,13 +554,18 @@ body.light-mode .modal-spinner{border-color:rgba(0,102,204,.2);border-top-color:
     <!-- STEP 1: Phone Number -->
     <div class="modal-step" id="mStep1">
       <div class="modal-title">🟢 Connect to WhatsApp</div>
-      <div class="modal-sub">Enter your number to get your personal join code.</div>
+      <div class="modal-sub">Enter your details to get your personal join code.</div>
       <label class="modal-label" for="modalPhone">Your Mobile Number</label>
       <div class="modal-input-row">
         <div class="modal-prefix">🇮🇳 +91</div>
-        <input class="modal-input" id="modalPhone" type="tel" maxlength="10" placeholder="10-digit number" onkeydown="if(event.key==='Enter')submitModalPhone()">
+        <input class="modal-input" id="modalPhone" type="tel" maxlength="10" placeholder="10-digit number">
       </div>
-      <span class="modal-error hidden" id="modalPhoneError">Please enter a valid 10-digit number.</span>
+      <span class="modal-error hidden" id="modalPhoneError"></span>
+      
+      <label class="modal-label" for="modalSignupEmail" style="margin-top:14px">Your Email Address</label>
+      <input class="modal-input" id="modalSignupEmail" type="email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')submitModalPhone()">
+      <span class="modal-error hidden" id="modalEmailError"></span>
+      
       <button class="modal-btn-primary" onclick="submitModalPhone()">Get My Join Code →</button>
     </div>
 
@@ -562,11 +581,11 @@ body.light-mode .modal-spinner{border-color:rgba(0,102,204,.2);border-top-color:
         <div>
           <div class="m-step-label">Send this code on WhatsApp to this number:</div>
           <div class="code-box green" style="margin-bottom:8px">
-            <span class="code-text green-text" id="modalTwilioNum">{{ twilio_number }}</span>
+            <span class="code-text green-text" id="modalTwilioNum">Loading...</span>
             <button class="copy-btn" onclick="copyField('modalTwilioNum',this)">Copy</button>
           </div>
           <div class="code-box">
-            <span class="code-text" id="modalJoinCode">{{ join_code }}</span>
+            <span class="code-text" id="modalJoinCode">Loading...</span>
             <button class="copy-btn" onclick="copyField('modalJoinCode',this)">Copy</button>
           </div>
         </div>
@@ -590,6 +609,48 @@ body.light-mode .modal-spinner{border-color:rgba(0,102,204,.2);border-top-color:
         <strong>After sending the code</strong> — your dashboard opens automatically. Then just chat on WhatsApp and everything gets saved here!
       </div>
       <button class="modal-back" onclick="goModalBack()">← Change number</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN MODAL (OTP) -->
+<div class="modal-backdrop" id="loginBackdrop">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeLoginModal()">✕</button>
+
+    <!-- LOGIN STEP 1: Phone -->
+    <div class="modal-step" id="lStep1">
+      <div class="modal-title">🔐 Dashboard Login</div>
+      <div class="modal-sub">Enter phone number linked to your account</div>
+      <label class="modal-label" for="loginPhone">Your Mobile Number</label>
+      <div class="modal-input-row">
+        <div class="modal-prefix">🇮🇳 +91</div>
+        <input class="modal-input" id="loginPhone" type="tel" maxlength="10" placeholder="10-digit number" onkeydown="if(event.key==='Enter')checkLoginPhone()">
+      </div>
+      <span class="modal-error hidden" id="loginPhoneError"></span>
+      <button class="modal-btn-primary" onclick="checkLoginPhone()">Next →</button>
+    </div>
+
+    <!-- LOGIN STEP 2: Email -->
+    <div class="modal-step hidden" id="lStep2">
+      <div class="modal-title">📧 Verify Email</div>
+      <div class="modal-sub" id="loginEmailSubtitle">Enter email on your account</div>
+      <label class="modal-label" for="loginEmail">Email Address</label>
+      <input class="modal-input" id="loginEmail" type="email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')sendLoginOTP()">
+      <span class="modal-error hidden" id="loginEmailError"></span>
+      <button class="modal-btn-primary" onclick="sendLoginOTP()">Send OTP</button>
+      <button class="modal-back" onclick="goLoginBack()">← Change number</button>
+    </div>
+
+    <!-- LOGIN STEP 3: OTP -->
+    <div class="modal-step hidden" id="lStep3">
+      <div class="modal-title">✉️ Enter OTP Code</div>
+      <div class="modal-sub">Check your email for a 6-digit code</div>
+      <label class="modal-label" for="loginOTP">OTP Code</label>
+      <input class="modal-input" id="loginOTP" type="text" maxlength="6" placeholder="000000" style="font-size:1.2rem;letter-spacing:4px;text-align:center" onkeydown="if(event.key==='Enter')verifyLoginOTP()">
+      <span class="modal-error hidden" id="loginOTPError"></span>
+      <button class="modal-btn-primary" onclick="verifyLoginOTP()">Verify & Login</button>
+      <button class="modal-back" onclick="goLoginBack()">← Change email</button>
     </div>
   </div>
 </div>
@@ -752,7 +813,7 @@ document.querySelectorAll('.how-section,.testimonials-section,.cta-footer').forE
 })();
 
 /* Modal logic */
-let userPhone='',pollInterval=null;
+let userPhone='',userEmail='',pollInterval=null;
 
 function openModal(){
   // Clone ONLY the star SVG (not pills/sparkles)
@@ -784,17 +845,50 @@ function closeModal(){
     document.getElementById('mStep1').classList.remove('hidden');
     document.getElementById('mStep2').classList.add('hidden');
     document.getElementById('modalPhone').value='';
+    document.getElementById('modalSignupEmail').value='';
     document.getElementById('modalPhoneError').classList.add('hidden');
+    document.getElementById('modalEmailError').classList.add('hidden');
     document.getElementById('modalQR').innerHTML='';
+    userPhone='';
+    userEmail='';
   },300);
 }
 function submitModalPhone(){
-  const input=document.getElementById('modalPhone');
-  const errEl=document.getElementById('modalPhoneError');
-  const val=input.value.trim().replace(/\D/g,'');
-  if(val.length!==10){errEl.classList.remove('hidden');input.focus();return;}
-  errEl.classList.add('hidden');
-  userPhone='91'+val;
+  const phoneInput=document.getElementById('modalPhone');
+  const emailInput=document.getElementById('modalSignupEmail');
+  const phoneErr=document.getElementById('modalPhoneError');
+  const emailErr=document.getElementById('modalEmailError');
+  
+  // Validate phone
+  const phoneVal=phoneInput.value.trim().replace(/\D/g,'');
+  if(phoneVal.length!==10){
+    phoneErr.textContent='❌ Please enter a valid 10-digit number';
+    phoneErr.classList.remove('hidden');
+    phoneInput.focus();
+    return;
+  }
+  phoneErr.classList.add('hidden');
+  
+  // Validate email
+  const emailVal=emailInput.value.trim();
+  if(!emailVal||!emailVal.includes('@')){
+    emailErr.textContent='❌ Please enter a valid email';
+    emailErr.classList.remove('hidden');
+    emailInput.focus();
+    return;
+  }
+  emailErr.classList.add('hidden');
+  
+  userPhone='91'+phoneVal;
+  userEmail=emailVal;
+  
+  // Store phone+email on backend for later use
+  fetch('/dash/api/check-phone/',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({phone:userPhone,email:userEmail})
+  }).catch(e=>console.error('Pre-store failed:',e));
+  
   document.getElementById('mStep1').classList.add('hidden');
   document.getElementById('mStep2').classList.remove('hidden');
   generateQR();
@@ -808,18 +902,66 @@ function goModalBack(){
 }
 function generateQR(){
   const qrContainer=document.getElementById('modalQR');
-  qrContainer.innerHTML='';
-  const rawNumber='{{ twilio_number }}'.replace('+','');
-  const joinCode=encodeURIComponent('{{ join_code }}');
-  const waLink=`https://wa.me/${rawNumber}?text=${joinCode}`;
-  new QRCode(qrContainer,{text:waLink,width:148,height:148,colorDark:'#03060f',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+  qrContainer.innerHTML='<p style="text-align:center;color:var(--text-mid);font-size:.9rem">Generating QR code...</p>';
+  console.log('[QR] generateQR called, fetching WhatsApp info...');
+  
+  // Fetch Twilio WhatsApp info from API
+  fetch('/dash/api/whatsapp-info/')
+    .then(r=>{
+      console.log('[QR] API Response status:', r.status);
+      return r.json();
+    })
+    .then(data=>{
+      console.log('[QR] API Data received:', data);
+      const waLink=data.whatsapp_link;
+      
+      // Update the number and join code display
+      document.getElementById('modalTwilioNum').textContent=data.whatsapp_number;
+      document.getElementById('modalJoinCode').textContent=data.join_code;
+      
+      console.log('[QR] Generating QR code with link:', waLink);
+      
+      // Clear loading text
+      qrContainer.innerHTML='';
+      
+      // Generate QR code from the dynamic link
+      new QRCode(qrContainer,{
+        text:waLink,
+        width:148,
+        height:148,
+        colorDark:'#03060f',
+        colorLight:'#ffffff',
+        correctLevel:QRCode.CorrectLevel.M
+      });
+      
+      console.log('[QR] QR code generated successfully');
+    })
+    .catch(err=>{
+      console.error('[QR] Error:', err);
+      qrContainer.innerHTML='<span style="color:red;font-size:.9rem">Error loading QR code. Check console.</span>';
+    });
 }
 function startPolling(){checkUser();pollInterval=setInterval(checkUser,3000);}
 function stopPolling(){if(pollInterval){clearInterval(pollInterval);pollInterval=null;}}
 function checkUser(){
   fetch(`/api/check-user/?phone=${userPhone}`)
     .then(r=>r.json())
-    .then(data=>{if(data.registered&&data.dashboard_url){stopPolling();window.location.href=data.dashboard_url;}})
+    .then(data=>{
+      if(data.registered){
+        stopPolling();
+        // Show success and close modal
+        const step2=document.getElementById('mStep2');
+        step2.innerHTML=`
+          <div style="text-align:center;padding:30px 20px">
+            <div style="font-size:3rem;margin-bottom:16px">✅</div>
+            <div class="modal-title">You're All Set!</div>
+            <div class="modal-sub" style="margin-bottom:24px">You've successfully joined WhatsApp. Now login to access your dashboard.</div>
+            <button class="modal-btn-primary" onclick="closeModal();openLoginModal()">🔐 Login with OTP</button>
+            <button class="modal-back" onclick="closeModal()">← Close</button>
+          </div>
+        `;
+      }
+    })
     .catch(e=>console.error('Poll:',e));
 }
 function copyField(id,btn){
@@ -828,8 +970,288 @@ function copyField(id,btn){
   });
 }
 
-/* Close modal on backdrop click */
+/* LOGIN MODAL FUNCTIONS */
+let loginCurrentPhone='';
+let loginCurrentEmail='';
+let otpSending=false;  // Debounce flag to prevent duplicate OTP sends
+let lastOTPRequestTime=0;  // Track when last OTP was sent
+const OTP_COOLDOWN_SECONDS=120;  // 2 minutes cooldown
+
+function openLoginModal(){
+  document.getElementById('loginBackdrop').classList.add('open');
+  document.body.style.overflow='hidden';
+  document.getElementById('loginPhone').focus();
+}
+
+function closeLoginModal(){
+  document.getElementById('loginBackdrop').classList.remove('open');
+  document.body.style.overflow='';
+  setTimeout(()=>{
+    document.getElementById('lStep1').classList.remove('hidden');
+    document.getElementById('lStep2').classList.add('hidden');
+    document.getElementById('lStep3').classList.add('hidden');
+    document.getElementById('loginPhone').value='';
+    document.getElementById('loginEmail').value='';
+    document.getElementById('loginOTP').value='';
+    document.getElementById('loginPhoneError').classList.add('hidden');
+    document.getElementById('loginEmailError').classList.add('hidden');
+    document.getElementById('loginOTPError').classList.add('hidden');
+  },300);
+}
+
+async function checkLoginPhone(){
+  const phone=document.getElementById('loginPhone').value.trim().replace(/\D/g,'');
+  const errEl=document.getElementById('loginPhoneError');
+  
+  if(phone.length!==10){
+    errEl.textContent='❌ Please enter a valid 10-digit number';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  
+  const fullPhone='91'+phone;
+  errEl.classList.add('hidden');
+  const btn=event.target;
+  btn.classList.add('loading');btn.disabled=true;
+  
+  try{
+    const response=await fetch('/dash/api/check-phone/',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone:fullPhone})
+    });
+    const data=await response.json();
+    
+    if(data.success){
+      if(data.exists){
+        loginCurrentPhone=fullPhone;
+        loginCurrentEmail=data.email;
+        document.getElementById('loginEmail').value=data.email;
+        document.getElementById('loginEmail').disabled=true;
+        document.getElementById('loginEmailSubtitle').textContent='We found your account! OTP will be sent to this email.';
+        document.getElementById('lStep1').classList.add('hidden');
+        document.getElementById('lStep2').classList.remove('hidden');
+        setTimeout(()=>sendLoginOTPAuto(),300);
+      }else{
+        errEl.textContent='❌ No account found with this number';
+        errEl.classList.remove('hidden');
+      }
+    }else{
+      errEl.textContent=data.message||'❌ Error checking phone';
+      errEl.classList.remove('hidden');
+    }
+  }catch(err){
+    console.error(err);
+    errEl.textContent='❌ Network error';
+    errEl.classList.remove('hidden');
+  }finally{
+    btn.classList.remove('loading');btn.disabled=false;
+  }
+}
+
+async function sendLoginOTP(){
+  // Check cooldown
+  const now=Math.floor(Date.now()/1000);
+  const timeSinceLast=now-lastOTPRequestTime;
+  if(lastOTPRequestTime>0 && timeSinceLast < OTP_COOLDOWN_SECONDS){
+    const remaining=OTP_COOLDOWN_SECONDS-timeSinceLast;
+    const errEl=document.getElementById('loginEmailError');
+    errEl.textContent=`⏱️ Please wait ${remaining}s before requesting OTP again`;
+    errEl.classList.remove('hidden');
+    return;
+  }
+  
+  // Prevent duplicate sends
+  if(otpSending){return;}
+  
+  const email=document.getElementById('loginEmail').value.trim();
+  const errEl=document.getElementById('loginEmailError');
+  
+  if(!email||!email.includes('@')){
+    errEl.textContent='❌ Please enter a valid email';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  
+  errEl.classList.add('hidden');
+  loginCurrentEmail=email;
+  otpSending=true;
+  const btn=event.target;
+  btn.classList.add('loading');btn.disabled=true;
+  
+  try{
+    const response=await fetch('/dash/api/send-otp/',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone:loginCurrentPhone,email:loginCurrentEmail})
+    });
+    const data=await response.json();
+    
+    if(data.success){
+      lastOTPRequestTime=Math.floor(Date.now()/1000);
+      document.getElementById('lStep2').classList.add('hidden');
+      document.getElementById('lStep3').classList.remove('hidden');
+      setTimeout(()=>document.getElementById('loginOTP').focus(),300);
+    }else{
+      errEl.textContent=data.message||'❌ Failed to send OTP';
+      errEl.classList.remove('hidden');
+    }
+  }catch(err){
+    console.error(err);
+    errEl.textContent='❌ Network error';
+    errEl.classList.remove('hidden');
+  }finally{
+    btn.classList.remove('loading');btn.disabled=false;
+    otpSending=false;
+  }
+}
+
+async function sendLoginOTPAuto(){
+  await sendLoginOTPViaAPI();
+}
+
+async function sendLoginOTPViaAPI(){
+  // Check cooldown
+  const now=Math.floor(Date.now()/1000);
+  const timeSinceLast=now-lastOTPRequestTime;
+  if(lastOTPRequestTime>0 && timeSinceLast < OTP_COOLDOWN_SECONDS){
+    return; // Silently skip auto-send if on cooldown
+  }
+  
+  // Prevent duplicate sends
+  if(otpSending){return;}
+  otpSending=true;
+  
+  try{
+    const response=await fetch('/dash/api/send-otp/',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone:loginCurrentPhone,email:loginCurrentEmail})
+    });
+    const data=await response.json();
+    
+    if(data.success){
+      lastOTPRequestTime=Math.floor(Date.now()/1000);
+      document.getElementById('lStep2').classList.add('hidden');
+      document.getElementById('lStep3').classList.remove('hidden');
+      document.getElementById('loginOTP').focus();
+    }else{
+      const errEl=document.getElementById('loginEmailError');
+      errEl.textContent=data.message||'❌ Failed to send OTP';
+      errEl.classList.remove('hidden');
+    }
+  }catch(err){
+    console.error(err);
+    const errEl=document.getElementById('loginEmailError');
+    errEl.textContent='❌ Network error';
+    errEl.classList.remove('hidden');
+  }finally{
+    otpSending=false;
+  }
+}
+
+async function verifyLoginOTP(){
+  const otp=document.getElementById('loginOTP').value.trim();
+  const errEl=document.getElementById('loginOTPError');
+  
+  if(!otp||otp.length!==6||!/^\d+$/.test(otp)){
+    errEl.textContent='❌ Enter 6-digit code';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  
+  errEl.classList.add('hidden');
+  const btn=event.target;
+  btn.classList.add('loading');btn.disabled=true;
+  
+  try{
+    const response=await fetch('/dash/api/verify-otp/',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone:loginCurrentPhone,email:loginCurrentEmail,otp:otp})
+    });
+    const data=await response.json();
+    
+    if(data.success){
+      btn.textContent='✓ Logging in...';
+      setTimeout(()=>window.location.href=data.redirect_url,1000);
+    }else{
+      errEl.textContent=data.message||'❌ Invalid OTP';
+      errEl.classList.remove('hidden');
+      btn.classList.remove('loading');btn.disabled=false;
+    }
+  }catch(err){
+    console.error(err);
+    errEl.textContent='❌ Network error';
+    errEl.classList.remove('hidden');
+    btn.classList.remove('loading');btn.disabled=false;
+  }
+}
+
+function goLoginBack(){
+  const step3=document.getElementById('lStep3').classList.contains('hidden')===false;
+  const step2=document.getElementById('lStep2').classList.contains('hidden')===false;
+  
+  if(step3){
+    // From OTP -> Email
+    document.getElementById('lStep3').classList.add('hidden');
+    document.getElementById('lStep2').classList.remove('hidden');
+    document.getElementById('loginOTP').value='';
+    document.getElementById('loginOTPError').classList.add('hidden');
+  }else if(step2){
+    // From Email -> Phone
+    document.getElementById('lStep2').classList.add('hidden');
+    document.getElementById('lStep1').classList.remove('hidden');
+    document.getElementById('loginEmail').value='';
+    document.getElementById('loginEmail').disabled=false;
+    document.getElementById('loginPhoneError').classList.add('hidden');
+    document.getElementById('loginEmailError').classList.add('hidden');
+  }
+}
+
+/* Close modals on backdrop click */
 document.getElementById('modalBackdrop').addEventListener('click',e=>{if(e.target===document.getElementById('modalBackdrop'))closeModal();});
+document.getElementById('loginBackdrop').addEventListener('click',e=>{if(e.target===document.getElementById('loginBackdrop'))closeLoginModal();});
+
+/* Load WhatsApp info on page load or immediately if already loaded */
+function loadWhatsAppInfo(){
+  console.log('[WhatsApp Info] Loading...');
+  fetch('/dash/api/whatsapp-info/')
+    .then(r=>{
+      console.log('[WhatsApp Info] API Response status:', r.status);
+      return r.json();
+    })
+    .then(data=>{
+      console.log('[WhatsApp Info] Data received:', data);
+      document.getElementById('quickWANumber').textContent=data.whatsapp_number;
+      document.getElementById('quickJoinCode').textContent=data.join_code;
+      console.log('[WhatsApp Info] Quick join section updated');
+    })
+    .catch(e=>{
+      console.error('[WhatsApp Info] Error:', e);
+    });
+}
+
+// Try to load immediately, or wait for DOM if not ready
+if(document.readyState==='loading'){
+  console.log('[WhatsApp Info] DOM still loading, waiting for DOMContentLoaded');
+  document.addEventListener('DOMContentLoaded',loadWhatsAppInfo);
+}else{
+  console.log('[WhatsApp Info] DOM already loaded, loading immediately');
+  loadWhatsAppInfo();
+}
+
+function copyQuickJoinInfo(){
+  const number=document.getElementById('quickWANumber').textContent;
+  const code=document.getElementById('quickJoinCode').textContent;
+  const text=`Send "${code}" to ${number}`;
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=event.target;
+    const orig=btn.textContent;
+    btn.textContent='✓ Copied!';
+    setTimeout(()=>btn.textContent=orig,1500);
+  });
+}
 </script>
 </body>
 </html>

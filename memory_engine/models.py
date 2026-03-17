@@ -5,6 +5,7 @@ from django.utils import timezone
 class BotUser(models.Model):
     """WhatsApp user - identified by phone number"""
     phone = models.CharField(max_length=30, unique=True, db_index=True)
+    email = models.EmailField(blank=True, default="", db_index=True)
     name = models.CharField(max_length=100, blank=True, default="")
     tier = models.CharField(
         max_length=10,
@@ -178,6 +179,67 @@ class SavedFile(models.Model):
 
     def __str__(self):
         return f"[{self.user.phone}] {self.name}"
+
+
+class OTPVerification(models.Model):
+    """OTP sent to user email for dashboard login"""
+    phone = models.CharField(max_length=30, db_index=True)
+    email = models.EmailField()
+    otp_code = models.CharField(max_length=6)  # 6-digit OTP
+    attempts = models.IntegerField(default=0)  # failed attempts
+    max_attempts = 5
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_verified = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['phone', 'email', 'expires_at']),
+        ]
+
+    def is_valid(self):
+        """Check if OTP has not expired and not verified"""
+        return timezone.now() < self.expires_at and not self.is_verified
+
+    def is_expired(self):
+        """Check if OTP expired"""
+        return timezone.now() >= self.expires_at
+
+    def __str__(self):
+        return f"{self.phone} → {self.email} ({'verified' if self.is_verified else 'pending'})"
+
+
+class DeviceSession(models.Model):
+    """Persistent login sessions for dashboard devices"""
+    user = models.ForeignKey(BotUser, on_delete=models.CASCADE, related_name='device_sessions')
+    session_token = models.CharField(max_length=64, unique=True, db_index=True)
+    device_fingerprint = models.CharField(
+        max_length=255, blank=True, default=""
+    )  # browser + user-agent hash
+    user_agent = models.TextField(blank=True, default="")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField()  # 30 days by default
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-last_used_at']
+        indexes = [
+            models.Index(fields=['session_token', 'user']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def is_valid(self):
+        """Session is valid if not expired and active"""
+        return timezone.now() < self.expires_at and self.is_active
+
+    def __str__(self):
+        return f"[{self.user.phone}] Session ({'active' if self.is_valid() else 'expired'})"
+
+
+
 
 
 

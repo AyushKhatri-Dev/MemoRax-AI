@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.conf import settings
 
 from .models import BotUser, DashboardToken
+from .utils import normalize_phone
 
 logger = logging.getLogger(__name__)
 
@@ -94,16 +95,16 @@ def check_user(request):
     if not phone:
         return JsonResponse({'error': 'Phone number required'}, status=400)
 
-    # Keep only digits
-    clean = re.sub(r'\D', '', phone)
-    if len(clean) < 7:
+    # Normalize phone number to standard format
+    phone = normalize_phone(phone)
+    
+    if not phone:
         return JsonResponse({'error': 'Invalid phone number'}, status=400)
 
-    # Match by last 10 digits (works for Indian numbers entered with/without country code)
-    last10 = clean[-10:]
-    user = BotUser.objects.filter(phone__contains=last10).first()
-
-    if not user:
+    # Exact match on normalized phone number
+    try:
+        user = BotUser.objects.get(phone=phone)
+    except BotUser.DoesNotExist:
         return JsonResponse({'registered': False})
 
     # Get existing valid token or create a new one

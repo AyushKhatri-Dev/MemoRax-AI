@@ -1,0 +1,613 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MemoRax · User Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#03060f; --sidebar-bg:#0a1733;
+  --blue:#5bc4ff; --blue-dark:#2a8fd4;
+  --yellow:#FFD233; --green:#4CC97A;
+  --text:#e8f4ff; --text-mid:#8ab8d8; --text-dim:#4a7090;
+  --border:rgba(91,196,255,0.12);
+  --card-bg:rgba(255,255,255,0.04);
+}
+body.light-mode{
+  --bg:#eef4fb; --sidebar-bg:#ffffff;
+  --blue:#0066CC; --blue-dark:#0052A3;
+  --text:#0d1b2e; --text-mid:#3a5a7a; --text-dim:#7090aa;
+  --border:rgba(0,102,204,0.14);
+  --card-bg:rgba(255,255,255,0.85);
+}
+html{height:100%;}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-y:auto;transition:background .5s ease,color .5s ease;}
+
+.space-bg{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 80% 60% at 15% 40%,#0c1d42 0%,#060e22 45%,#020509 100%);overflow:hidden;pointer-events:none;transition:opacity .5s ease;}
+body.light-mode .space-bg{opacity:0;}
+
+.layout{position:relative;z-index:1;margin-left:240px;min-height:100vh;}
+
+.sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;z-index:300;background:var(--sidebar-bg);border-right:1px solid var(--border);box-shadow:4px 0 24px rgba(0,0,0,.3);display:flex;flex-direction:column;padding:24px 16px;transition:background .5s ease,border-color .5s ease;}
+.sidebar-logo{font-family:'Baloo 2',cursive;font-size:1.5rem;font-weight:800;color:var(--yellow);display:flex;align-items:center;gap:8px;text-shadow:0 0 20px rgba(255,210,51,.4);margin-bottom:24px;text-decoration:none;cursor:pointer;}
+.sidebar-user{background:rgba(91,196,255,.07);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:24px;}
+.sidebar-user-name{font-weight:800;font-size:.95rem;color:var(--text);margin-bottom:2px;}
+.sidebar-user-plan{font-size:.73rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px;}
+.sidebar-nav{flex:1;}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;color:var(--text-mid);font-weight:700;font-size:.9rem;text-decoration:none;transition:all .2s;margin-bottom:3px;}
+.sidebar-nav a:hover{background:rgba(91,196,255,.1);color:var(--blue);}
+.sidebar-nav a.active{background:rgba(91,196,255,.15);color:var(--blue);border:1px solid rgba(91,196,255,.2);}
+.sidebar-nav a .nav-icon{font-size:1.1rem;width:22px;text-align:center;flex-shrink:0;}
+.sidebar-footer{font-size:.72rem;color:var(--text-dim);font-weight:700;text-align:center;padding-top:16px;border-top:1px solid var(--border);}
+.theme-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:10px;background:rgba(91,196,255,.08);border:1px solid var(--border);color:var(--text-mid);font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;padding:8px;border-radius:10px;cursor:pointer;transition:background .2s,color .2s;}
+.theme-btn:hover{background:rgba(91,196,255,.16);color:var(--blue);}
+.logout-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:8px;background:rgba(244,63,94,.08);border:1.5px solid rgba(244,63,94,.25);color:#ff7070;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;padding:8px;border-radius:10px;cursor:pointer;transition:background .2s,color .2s,border-color .2s;}
+.logout-btn:hover{background:rgba(244,63,94,.15);color:#ff8080;border-color:rgba(244,63,94,.4);}
+
+.main{padding:32px;min-width:0;}
+.page-header{margin-bottom:28px;}
+.page-title{font-family:'Baloo 2',cursive;font-size:1.8rem;font-weight:800;color:var(--text);margin-bottom:4px;}
+.page-sub{font-size:.88rem;color:var(--text-mid);font-weight:600;}
+
+.profile-container{display:grid;grid-template-columns:300px 1fr;gap:24px;max-width:900px;}
+
+.profile-card{background:var(--card-bg);border:1px solid var(--border);border-radius:18px;padding:28px;text-align:center;}
+.profile-avatar{width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue-dark));display:flex;align-items:center;justify-content:center;font-size:3rem;margin:0 auto 16px;box-shadow:0 8px 24px rgba(91,196,255,.25);}
+.profile-name{font-family:'Baloo 2',cursive;font-size:1.3rem;font-weight:800;color:var(--text);margin-bottom:4px;}
+.profile-email{font-size:.88rem;color:var(--text-mid);font-weight:600;margin-bottom:8px;}
+.profile-phone{font-size:.78rem;color:var(--text-dim);font-weight:600;margin-bottom:16px;}
+.profile-badge{display:inline-block;background:rgba(255,210,51,.15);border:1px solid rgba(255,210,51,.3);color:var(--yellow);font-weight:800;font-size:.75rem;padding:6px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:20px;}
+
+.stats-mini{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.stat-item{background:rgba(91,196,255,.05);border:1px solid rgba(91,196,255,.1);border-radius:12px;padding:12px;text-align:center;}
+.stat-num{font-family:'Baloo 2',cursive;font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--blue-dark));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:2px;}
+.stat-label{font-size:.7rem;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+
+.profile-form{background:var(--card-bg);border:1px solid var(--border);border-radius:18px;padding:28px;}
+.form-section{margin-bottom:24px;}
+.form-section:last-child{margin-bottom:0;}
+.form-title{font-family:'Baloo 2',cursive;font-size:1.1rem;font-weight:800;color:var(--text);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+
+.form-group{margin-bottom:16px;}
+.form-group:last-child{margin-bottom:0;}
+.form-label{display:block;font-size:.85rem;font-weight:800;color:var(--text-mid);margin-bottom:8px;text-transform:uppercase;letter-spacing:.6px;}
+.form-input{width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);font-family:'Nunito',sans-serif;font-weight:700;font-size:.95rem;padding:12px 14px;border-radius:12px;outline:none;transition:border-color .2s,box-shadow .2s;}
+.form-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(91,196,255,.15);}
+.form-input:disabled{opacity:.6;cursor:not-allowed;}
+.form-input::placeholder{color:var(--text-dim);}
+
+.form-note{font-size:.75rem;color:var(--text-dim);font-weight:600;margin-top:6px;}
+
+.btn-group{display:flex;gap:12px;margin-top:20px;}
+.btn{padding:12px 20px;border-radius:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;cursor:pointer;border:none;transition:all .2s;}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:white;flex:1;box-shadow:0 4px 16px rgba(91,196,255,.25);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(91,196,255,.35);}
+.btn-secondary{background:rgba(91,196,255,.08);color:var(--text);border:1px solid var(--border);flex:1;}
+.btn-secondary:hover{background:rgba(91,196,255,.15);}
+
+.alert{padding:12px 14px;border-radius:12px;font-size:.9rem;font-weight:700;margin-bottom:16px;display:none;}
+.alert.success{background:rgba(76,201,122,.12);border:1px solid rgba(76,201,122,.3);color:var(--green);}
+.alert.error{background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3);color:#ff7070;}
+.alert.show{display:block;}
+
+.memory-quota{background:rgba(91,196,255,.07);border:1px solid rgba(91,196,255,.15);border-radius:12px;padding:14px;}
+.quota-label{font-size:.85rem;color:var(--text-mid);font-weight:700;margin-bottom:8px;}
+.quota-bar{width:100%;height:8px;background:rgba(91,196,255,.1);border-radius:4px;overflow:hidden;margin-bottom:6px;}
+.quota-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--blue-dark));width:15%;}
+.quota-text{font-size:.75rem;color:var(--text-dim);font-weight:600;}
+
+.mob-header{display:none;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(6,14,34,.95);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);}
+body.light-mode .mob-header{background:rgba(255,255,255,.95);}
+.mob-logo{font-family:'Baloo 2',cursive;font-size:1.3rem;font-weight:800;color:var(--yellow);}
+.mob-header-right{display:flex;align-items:center;gap:8px;}
+.mob-toggle{background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-mid);font-size:1.2rem;width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.mob-theme-btn{background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-mid);font-size:1rem;width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.sidebar-overlay{display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);}
+.sidebar-overlay.open{display:block;}
+.sidebar.mob-open{transform:translateX(0)!important;}
+.ease-spring{--ease-spring:cubic-bezier(0.34,1.56,0.64,1);}
+@media(max-width:680px){
+  .mob-header{display:flex;}
+  .sidebar{transform:translateX(-100%);transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);}
+  .layout{margin-left:0;}
+  .main{padding:20px 16px;}
+  .profile-container{grid-template-columns:1fr;max-width:100%;}
+}
+@media(max-width:900px){
+  .profile-container{grid-template-columns:1fr;max-width:100%;}
+}
+</style>
+</head>
+<body>
+
+<div class="space-bg">
+  <div class="nebula neb-1"></div>
+  <div class="nebula neb-2"></div>
+</div>
+
+<!-- Mobile header -->
+<div class="mob-header">
+  <span class="mob-logo">⭐ MemoRax</span>
+  <div class="mob-header-right">
+    <button class="mob-theme-btn" onclick="toggleTheme()">🌙</button>
+    <button class="mob-toggle" onclick="toggleSidebar()">☰</button>
+  </div>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR — outside .layout so z-index is in root stacking context -->
+<aside class="sidebar" id="sidebar">
+  <a href="{{ url_prefix }}" class="sidebar-logo"><span>⭐</span> MemoRax</a>
+
+  <div class="sidebar-user">
+    <div class="sidebar-user-name">👋 {{ user.name|default:user.email|default:"User" }}</div>
+    <div class="sidebar-user-plan">{{ user.tier|upper }} Plan</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="{{ url_prefix }}">
+      <span class="nav-icon">🏠</span> Overview
+    </a>
+    <a href="{{ url_prefix }}calendar/">
+      <span class="nav-icon">📅</span> Calendar
+    </a>
+    <a href="{{ url_prefix }}#memories">
+      <span class="nav-icon">🧠</span> Memories
+    </a>
+    <a href="{{ url_prefix }}#reminders">
+      <span class="nav-icon">⏰</span> Reminders
+    </a>
+    <a href="{{ url_prefix }}files/">
+      <span class="nav-icon">📁</span> File Vault
+    </a>
+    <a href="{{ url_prefix }}#activity">
+      <span class="nav-icon">📊</span> Activity
+    </a>
+    <a href="{{ url_prefix }}profile/" class="active">
+      <span class="nav-icon">👤</span> Profile
+    </a>
+    <a href="{{ url_prefix }}#settings">
+      <span class="nav-icon">⚙️</span> Settings
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">MemoRax AI · Your memory on WhatsApp</div>
+  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
+  <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+</aside>
+
+<div class="layout">
+  <!-- MAIN CONTENT -->
+  <div class="main">
+    <div class="page-header">
+      <h1 class="page-title">⚙️ User Profile</h1>
+      <p class="page-sub">Manage your account settings and preferences</p>
+    </div>
+
+    <div class="profile-container">
+      <!-- Profile Card -->
+      <div class="profile-card">
+        <div class="profile-avatar">👤</div>
+        <h2 class="profile-name">{{ user.name|default:"Set your name" }}</h2>
+        <p class="profile-email">{{ user.email|default:"No email" }}</p>
+        <p class="profile-phone">{{ user.phone }}</p>
+        <div class="profile-badge">{{ user.tier|upper }} Plan</div>
+        
+        <div class="stats-mini">
+          <div class="stat-item">
+            <div class="stat-num">{{ stats.total_memories }}</div>
+            <div class="stat-label">Memories</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">{{ stats.total_events }}</div>
+            <div class="stat-label">Events</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">{{ stats.total_reminders }}</div>
+            <div class="stat-label">Reminders</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">{{ stats.total_files }}</div>
+            <div class="stat-label">Files</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Form -->
+      <div class="profile-form">
+        <div id="alertBox" class="alert"></div>
+
+        <div class="form-section">
+          <h3 class="form-title">Account Information</h3>
+          
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input type="text" class="form-input" id="nameInput" placeholder="Enter your name" value="{{ user.name }}">
+            <div class="form-note">How others will know you as</div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-input" id="emailInput" placeholder="your@email.com" value="{{ user.email }}">
+            <div class="form-note">Used for OTP login and notifications</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="text" class="form-input" id="phoneInput" placeholder="Phone" value="{{ user.phone }}" disabled>
+            <div class="form-note">Cannot be changed (linked to WhatsApp)</div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 class="form-title">Reminder Settings</h3>
+          
+          <div class="form-group">
+            <label class="form-label">Repeat Interval (minutes)</label>
+            <input type="number" class="form-input" id="repeatInput" placeholder="0 for single reminder" value="{{ user.reminder_repeat_minutes }}" min="0" max="1440">
+            <div class="form-note">How often to repeat unseen reminders (0 = send once)</div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 class="form-title">Account Status</h3>
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="background:rgba(91,196,255,.05);border:1px solid rgba(91,196,255,.1);border-radius:12px;padding:12px;">
+              <div class="stat-label">Plan</div>
+              <div class="stat-num" style="font-size:1.2rem;background:linear-gradient(135deg,var(--yellow),#ff9f00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">{{ user.tier|upper }}</div>
+            </div>
+            <div style="background:rgba(76,201,122,.05);border:1px solid rgba(76,201,122,.15);border-radius:12px;padding:12px;">
+              <div class="stat-label">Status</div>
+              <div class="stat-num" style="font-size:1.2rem;color:var(--green);">{% if user.is_active %}ACTIVE{% else %}INACTIVE{% endif %}</div>
+            </div>
+          </div>
+        </div>
+
+        {% if user.tier == 'free' %}
+        <div class="memory-quota">
+          <div class="quota-label">📚 Memory Quota</div>
+          <div class="quota-bar">
+            <div class="quota-fill" id="quotaFill"></div>
+          </div>
+          <div class="quota-text">{{ user.memory_count }} of 50 memories used • <strong>Upgrade to Pro for unlimited</strong></div>
+        </div>
+        {% endif %}
+
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="saveProfile()">💾 Save Changes</button>
+          <button class="btn btn-secondary" onclick="resetForm()">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /layout -->
+
+<script>
+const TOKEN = '{{ token }}';
+const URL_PREFIX = '{{ url_prefix }}';
+const MEMORY_COUNT = {{ user.memory_count }};
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('mob-open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+// Set quota width
+const quotaFill = document.getElementById('quotaFill');
+if (quotaFill) {
+  quotaFill.style.width = Math.min((MEMORY_COUNT / 50) * 100, 100) + '%';
+}
+
+function showAlert(message, type = 'success') {
+  const box = document.getElementById('alertBox');
+  box.textContent = message;
+  box.className = `alert ${type} show`;
+  setTimeout(() => box.classList.remove('show'), 4000);
+}
+
+async function saveProfile() {
+  const name = document.getElementById('nameInput').value.trim();
+  const email = document.getElementById('emailInput').value.trim();
+  const repeat = parseInt(document.getElementById('repeatInput').value) || 0;
+
+  if (!name) {
+    showAlert('❌ Name cannot be empty', 'error');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${URL_PREFIX}api/profile/update/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, email, reminder_repeat_minutes: repeat})
+    });
+    const data = await response.json();
+    
+    if (data.success) {
+      showAlert('✅ ' + data.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showAlert(data.message || '❌ Update failed', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showAlert('❌ Network error', 'error');
+  }
+}
+
+function resetForm() {
+  location.reload();
+}
+
+function toggleTheme(){
+  const light = document.body.classList.toggle('light-mode');
+  localStorage.setItem('memorax-theme', light ? 'light' : 'dark');
+  const btn = document.getElementById('themeBtn');
+  if(btn) btn.textContent = light ? '☀️ Light Mode' : '🌙 Dark Mode';
+}
+
+async function logout() {
+  if (!confirm('Are you sure you want to logout?')) return;
+  
+  try {
+    await fetch(`${URL_PREFIX}api/logout/`, {method: 'POST'});
+    window.location.href = '/dash/';
+  } catch (err) {
+    console.error(err);
+    window.location.href = '/dash/';
+  }
+}
+
+// Load theme preference
+(function(){
+  if(localStorage.getItem('memorax-theme') === 'light'){
+    document.body.classList.add('light-mode');
+    const btn = document.getElementById('themeBtn');
+    if(btn) btn.textContent = '☀️ Light Mode';
+  }
+})();
+</script>
+
+<!-- Floating QR Code Button -->
+<style>
+.qr-float-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #25d366, #128c3e);
+  color: white;
+  border: none;
+  font-size: 1.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 24px rgba(37, 211, 102, 0.4);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 250;
+}
+
+.qr-float-btn:hover {
+  transform: scale(1.12) translateY(-3px);
+  box-shadow: 0 10px 32px rgba(37, 211, 102, 0.6);
+}
+
+.qr-float-btn:active {
+  transform: scale(0.95);
+}
+
+.qr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.qr-modal-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.qr-modal-box {
+  background: linear-gradient(135deg, #060e22, #0c1d42);
+  border: 1px solid rgba(91, 196, 255, 0.25);
+  border-radius: 20px;
+  padding: 32px;
+  text-align: center;
+  transform: scale(0.9) translateY(20px);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.qr-modal-backdrop.open .qr-modal-box {
+  transform: scale(1) translateY(0);
+}
+
+.qr-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #e8f4ff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.qr-modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.qr-modal-title {
+  font-family: 'Baloo 2', cursive;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #e8f4ff;
+  margin-bottom: 8px;
+}
+
+.qr-modal-sub {
+  font-size: 0.85rem;
+  color: #8ab8d8;
+  margin-bottom: 20px;
+}
+
+.qr-container {
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  display: inline-block;
+  margin-bottom: 18px;
+}
+
+.qr-copy-section {
+  background: rgba(91, 196, 255, 0.08);
+  border: 1px solid rgba(91, 196, 255, 0.2);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 16px;
+}
+
+.qr-copy-label {
+  font-size: 0.75rem;
+  color: #8ab8d8;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.qr-code-box {
+  background: rgba(37, 211, 102, 0.15);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  color: #5bc4ff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+.qr-code-box.alt {
+  background: rgba(91, 196, 255, 0.12);
+}
+
+@media (max-width: 640px) {
+  .qr-float-btn {
+    bottom: 16px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+    font-size: 1.4rem;
+  }
+  .qr-modal-box {
+    margin: 20px;
+    padding: 24px;
+  }
+  .qr-container {
+    transform: scale(0.85);
+  }
+}
+</style>
+
+<div class="qr-modal-backdrop" id="qrModalBackdrop">
+  <div class="qr-modal-box">
+    <button class="qr-modal-close" onclick="closeQRModal()">✕</button>
+    <div class="qr-modal-title">🟢 Invite a Friend</div>
+    <div class="qr-modal-sub">Share this code or scan QR to join</div>
+    <div class="qr-container" id="qrCodeDisplay">
+      <p style="color: #4a7090; font-size: 0.85rem;">Loading QR code...</p>
+    </div>
+    <div class="qr-copy-section">
+      <div class="qr-copy-label">📲 Or send this code:</div>
+      <div class="qr-code-box" id="qrNumber">+14155238886</div>
+      <div class="qr-code-box alt" id="qrCode">join on-largest</div>
+      <button style="width: 100%; background: rgba(91, 196, 255, 0.2); border: 1px solid rgba(91, 196, 255, 0.3); color: #e8f4ff; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; margin-top: 10px; transition: all 0.2s;" onclick="copyQRInfo()">📋 Copy All</button>
+    </div>
+    <p style="font-size: 0.75rem; color: #4a7090; margin-top: 14px;">They'll get a dashboard like yours when they join!</p>
+  </div>
+</div>
+
+<button class="qr-float-btn" onclick="openQRModal()" title="Share & Invite">🔗</button>
+
+<script>
+function openQRModal() {
+  document.getElementById('qrModalBackdrop').classList.add('open');
+  loadQRCode();
+}
+
+function closeQRModal() {
+  document.getElementById('qrModalBackdrop').classList.remove('open');
+}
+
+function loadQRCode() {
+  const qrContainer = document.getElementById('qrCodeDisplay');
+  qrContainer.innerHTML = '<p style="color: #4a7090; font-size: 0.85rem;">Generating QR code...</p>';
+  
+  fetch('/dash/api/whatsapp-info/')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('qrNumber').textContent = data.whatsapp_number;
+      document.getElementById('qrCode').textContent = data.join_code;
+      qrContainer.innerHTML = '';
+      new QRCode(qrContainer, {
+        text: data.whatsapp_link,
+        width: 160,
+        height: 160,
+        colorDark: '#03060f',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    })
+    .catch(err => {
+      console.error('[QR Modal] Error:', err);
+      qrContainer.innerHTML = '<p style="color: #ff7070;">Failed to load QR code</p>';
+    });
+}
+
+function copyQRInfo() {
+  const number = document.getElementById('qrNumber').textContent;
+  const code = document.getElementById('qrCode').textContent;
+  const text = `Send "${code}" to ${number} on WhatsApp to join MemoRax`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+document.getElementById('qrModalBackdrop').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('qrModalBackdrop')) closeQRModal();
+});
+
+if (typeof QRCode === 'undefined') {
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  document.head.appendChild(script);
+}
+</script>
+</body>
+</html>

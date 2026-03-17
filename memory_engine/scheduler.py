@@ -70,6 +70,11 @@ def check_and_send_reminders():
                 f"✅ Reply *GOT IT* to dismiss"
             )
 
+            # Ensure phone has whatsapp: prefix for Twilio API
+            to_phone = reminder.user.phone
+            if not to_phone.startswith('whatsapp:'):
+                to_phone = f'whatsapp:{to_phone}'
+
             # status_callback receives "read" event when user opens the message
             base_url = getattr(settings, 'BASE_URL', '')
             callback_url = f"{base_url}/bot/message-status/" if base_url else None
@@ -77,7 +82,7 @@ def check_and_send_reminders():
             kwargs = dict(
                 body=message_body,
                 from_=settings.TWILIO_WHATSAPP_NUMBER,
-                to=reminder.user.phone,
+                to=to_phone,
             )
             if callback_url:
                 kwargs['status_callback'] = callback_url

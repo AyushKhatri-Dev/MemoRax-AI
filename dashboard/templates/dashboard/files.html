@@ -36,12 +36,19 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 .sidebar-user{background:rgba(91,196,255,.07);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:24px;}
 .sidebar-user-name{font-weight:800;font-size:.95rem;color:var(--text);margin-bottom:2px;}
 .sidebar-user-plan{font-size:.73rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px;}
-.sidebar-nav{flex:1;}
+.sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;}
+.sidebar-nav::-webkit-scrollbar{width:3px;}
+.sidebar-nav::-webkit-scrollbar-track{background:transparent;}
+.sidebar-nav::-webkit-scrollbar-thumb{background:rgba(91,196,255,.2);border-radius:4px;}
 .sidebar-nav a{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;color:var(--text-mid);font-weight:700;font-size:.9rem;text-decoration:none;transition:all .2s;margin-bottom:3px;}
 .sidebar-nav a:hover{background:rgba(91,196,255,.1);color:var(--blue);}
 .sidebar-nav a.active{background:rgba(91,196,255,.15);color:var(--blue);border:1px solid rgba(91,196,255,.2);}
 .sidebar-nav a .nav-icon{font-size:1.1rem;width:22px;text-align:center;flex-shrink:0;}
 .sidebar-footer{font-size:.72rem;color:var(--text-dim);font-weight:700;text-align:center;padding-top:16px;border-top:1px solid var(--border);}
+.logout-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:8px;background:rgba(244,63,94,.08);border:1.5px solid rgba(244,63,94,.25);color:#ff7070;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;padding:8px;border-radius:10px;cursor:pointer;transition:background .2s,color .2s,border-color .2s;}
+.logout-btn:hover{background:rgba(244,63,94,.15);color:#ff8080;border-color:rgba(244,63,94,.4);}
+.layout{animation:pageFadeIn .35s ease both;}
+@keyframes pageFadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 
 /* MAIN */
 .main{padding:32px;min-width:0;}
@@ -150,32 +157,40 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
   <a href="/" class="sidebar-logo"><span class="logo-star">⭐</span> Memoroe</a>
 
   <div class="sidebar-user">
-    <div class="sidebar-user-name">👋 {{ user.name|default:"Friend" }}</div>
+    <div class="sidebar-user-name">👋 {{ user.name|default:user.email|default:"User" }}</div>
     <div class="sidebar-user-plan">{{ user.tier|upper }} Plan</div>
   </div>
 
   <nav class="sidebar-nav">
-    <a href="/dash/{{ token }}/" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}" onclick="closeSidebar()">
       <span class="nav-icon">🏠</span> Overview
     </a>
-    <a href="/dash/{{ token }}/calendar/" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}calendar/" onclick="closeSidebar()">
       <span class="nav-icon">📅</span> Calendar
     </a>
-    <a href="/dash/{{ token }}/#memories" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}#memories" onclick="closeSidebar()">
       <span class="nav-icon">🧠</span> Memories
     </a>
-    <a href="/dash/{{ token }}/#reminders" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}#reminders" onclick="closeSidebar()">
       <span class="nav-icon">⏰</span> Reminders
     </a>
-    <a href="/dash/{{ token }}/files/" class="active" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}files/" class="active" onclick="closeSidebar()">
       <span class="nav-icon">📁</span> File Vault
     </a>
-    <a href="/dash/{{ token }}/#activity" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}#activity" onclick="closeSidebar()">
       <span class="nav-icon">📊</span> Activity
+    </a>
+    <a href="{{ url_prefix }}profile/" onclick="closeSidebar()">
+      <span class="nav-icon">👤</span> Profile
+    </a>
+    <a href="{{ url_prefix }}#settings" onclick="closeSidebar()">
+      <span class="nav-icon">⚙️</span> Settings
     </a>
   </nav>
 
-  <div class="sidebar-footer">Memoroe AI · Your memory on WhatsApp</div>
+  <div class="sidebar-footer">MemoRax AI · Your memory on WhatsApp</div>
+  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
+  <button class="logout-btn" onclick="logout()">🚪 Logout</button>
 </aside>
 
 <div class="layout">
@@ -186,6 +201,28 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
         <div class="page-title">📁 File Vault</div>
         <div class="page-sub">All your images, PDFs & notes in one place</div>
       </div>
+      <button class="btn-primary" style="align-self:flex-start;margin-top:8px" onclick="showUploadForm()">⬆ Upload File</button>
+    </div>
+    
+    <!-- Upload Form (Hidden) -->
+    <div id="uploadForm" style="display:none;background:rgba(91,196,255,.06);border:1px solid rgba(91,196,255,.15);border-radius:14px;padding:16px;margin-bottom:16px">
+      <h3 style="color:var(--blue);margin-bottom:12px;font-size:.95rem">Upload File</h3>
+      <form id="fileUploadForm" style="display:grid;gap:10px" onsubmit="handleFileUpload(event)">
+        <div style="border:2px dashed rgba(91,196,255,.3);border-radius:10px;padding:24px;text-align:center;cursor:pointer" id="dropZone">
+          <div style="font-size:2rem;margin-bottom:8px">📁</div>
+          <div style="color:var(--text-mid);font-weight:700;font-size:.9rem">Click to upload or drag & drop</div>
+          <div style="color:var(--text-dim);font-size:.8rem;margin-top:4px">Supported: Images, PDFs, Text files (max 10MB)</div>
+          <input type="file" id="fileInput" style="display:none" onchange="updateFilename()" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.md" />
+        </div>
+        <div id="fileNameDisplay" style="color:var(--blue);font-weight:700;font-size:.85rem;text-align:center;display:none">Selected: <span id="selectedFile"></span></div>
+        <textarea id="fileCaption" placeholder="Description (optional)" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-family:'Nunito',sans-serif;min-height:50px;resize:vertical"></textarea>
+        <div style="display:flex;gap:10px">
+          <button type="submit" class="btn-primary" style="flex:1;font-size:.85rem;padding:10px">Upload File</button>
+          <button type="button" class="btn-secondary" style="flex:1;font-size:.85rem;padding:10px" onclick="hideUploadForm()">Cancel</button>
+        </div>
+        <span id="uploadError" style="color:#ff6b6b;font-size:.8rem;display:none"></span>
+        <span id="uploadStatus" style="color:var(--blue);font-size:.8rem;display:none"></span>
+      </form>
     </div>
 
     <!-- Stats pills -->
@@ -248,6 +285,20 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 /* ── Sidebar ── */
 function closeSidebar(){document.getElementById('sidebar').classList.remove('mob-open');document.getElementById('sidebarOverlay').classList.remove('open');}
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('mob-open');document.getElementById('sidebarOverlay').classList.toggle('open');}
+function logout(){if(!confirm('Are you sure you want to logout?'))return;window.location.href='/dash/';}
+function toggleTheme(){
+  const light=document.body.classList.toggle('light-mode');
+  localStorage.setItem('memorax-theme',light?'light':'dark');
+  const btn=document.getElementById('themeBtn');
+  if(btn)btn.textContent=light?'☀️ Light Mode':'🌙 Dark Mode';
+}
+(function(){
+  if(localStorage.getItem('memorax-theme')==='light'){
+    document.body.classList.add('light-mode');
+    const btn=document.getElementById('themeBtn');
+    if(btn)btn.textContent='☀️ Light Mode';
+  }
+})();
 
 /* ── File data ── */
 let allFiles = [];
@@ -257,7 +308,7 @@ const TYPE_ICON = {image:'📸', pdf:'📄', note:'📝', other:'📎'};
 const TYPE_BADGE = {image:'badge-image', pdf:'badge-pdf', note:'badge-note', other:'badge-other'};
 
 async function loadFiles(type) {
-  const url = `/dash/{{ token }}/api/files/${type && type !== 'all' ? '?type=' + type : ''}`;
+  const url = `{{ url_prefix }}api/files/${type && type !== 'all' ? '?type=' + type : ''}`;
   try {
     const resp = await fetch(url);
     allFiles = await resp.json();
@@ -269,7 +320,7 @@ async function loadFiles(type) {
 }
 
 function updateStats() {
-  fetch(`/dash/{{ token }}/api/files/`).then(r=>r.json()).then(all => {
+  fetch(`{{ url_prefix }}api/files/`).then(r=>r.json()).then(all => {
     document.getElementById('countAll').textContent = all.length;
     document.getElementById('countImages').textContent = all.filter(f=>f.file_type==='image').length;
     document.getElementById('countPdfs').textContent = all.filter(f=>f.file_type==='pdf').length;
@@ -362,8 +413,355 @@ function closeLightbox(e) {
   document.body.style.overflow = '';
 }
 
+/* ── File Upload ─────────────────────── */
+function showUploadForm(){
+  document.getElementById('uploadForm').style.display = '';
+  document.getElementById('fileInput').click();
+}
+
+function hideUploadForm(){
+  document.getElementById('uploadForm').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileCaption').value = '';
+  document.getElementById('fileNameDisplay').style.display = 'none';
+  document.getElementById('uploadError').style.display = 'none';
+  document.getElementById('uploadStatus').style.display = 'none';
+}
+
+function updateFilename(){
+  const file = document.getElementById('fileInput').files[0];
+  if(file){
+    document.getElementById('selectedFile').textContent = file.name;
+    document.getElementById('fileNameDisplay').style.display = '';
+  }
+}
+
+async function handleFileUpload(e){
+  e.preventDefault();
+  
+  const fileInput = document.getElementById('fileInput');
+  const file = fileInput.files[0];
+  const caption = document.getElementById('fileCaption').value.trim();
+  const errEl = document.getElementById('uploadError');
+  const statusEl = document.getElementById('uploadStatus');
+  
+  if(!file){
+    errEl.textContent = '❌ Please select a file';
+    errEl.style.display = '';
+    return;
+  }
+  
+  if(file.size > 10 * 1024 * 1024){
+    errEl.textContent = '❌ File too large (max 10MB)';
+    errEl.style.display = '';
+    return;
+  }
+  
+  try{
+    statusEl.textContent = '⏳ Uploading...';
+    statusEl.style.display = '';
+    errEl.style.display = 'none';
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    if(caption) formData.append('caption', caption);
+    
+    const response = await fetch(`{{ url_prefix }}api/upload-file/`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if(data.success){
+      statusEl.textContent = '✅ ' + data.message;
+      setTimeout(() => {
+        hideUploadForm();
+        loadFiles('all');
+        updateStats();
+      }, 1500);
+    }else{
+      errEl.textContent = '❌ ' + (data.message || 'Upload failed');
+      errEl.style.display = '';
+      statusEl.style.display = 'none';
+    }
+  }catch(e){
+    console.error(e);
+    errEl.textContent = '❌ Network error';
+    errEl.style.display = '';
+    statusEl.style.display = 'none';
+  }
+}
+
+// Drag and drop support
+document.addEventListener('DOMContentLoaded', function(){
+  const dropZone = document.getElementById('dropZone');
+  if(!dropZone) return;
+  
+  dropZone.addEventListener('click', () => document.getElementById('fileInput').click());
+  
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'rgba(91,196,255,.6)';
+    dropZone.style.background = 'rgba(91,196,255,.05)';
+  });
+  
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.style.borderColor = 'rgba(91,196,255,.3)';
+    dropZone.style.background = '';
+  });
+  
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'rgba(91,196,255,.3)';
+    dropZone.style.background = '';
+    if(e.dataTransfer.files.length > 0){
+      document.getElementById('fileInput').files = e.dataTransfer.files;
+      updateFilename();
+    }
+  });
+});
+
 // Initial load
 loadFiles('all');
+</script>
+
+<!-- Floating QR Code Button -->
+<style>
+.qr-float-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #25d366, #128c3e);
+  color: white;
+  border: none;
+  font-size: 1.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 24px rgba(37, 211, 102, 0.4);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 250;
+}
+
+.qr-float-btn:hover {
+  transform: scale(1.12) translateY(-3px);
+  box-shadow: 0 10px 32px rgba(37, 211, 102, 0.6);
+}
+
+.qr-float-btn:active {
+  transform: scale(0.95);
+}
+
+.qr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.qr-modal-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.qr-modal-box {
+  background: linear-gradient(135deg, #060e22, #0c1d42);
+  border: 1px solid rgba(91, 196, 255, 0.25);
+  border-radius: 20px;
+  padding: 32px;
+  text-align: center;
+  transform: scale(0.9) translateY(20px);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.qr-modal-backdrop.open .qr-modal-box {
+  transform: scale(1) translateY(0);
+}
+
+.qr-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #e8f4ff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.qr-modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.qr-modal-title {
+  font-family: 'Baloo 2', cursive;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #e8f4ff;
+  margin-bottom: 8px;
+}
+
+.qr-modal-sub {
+  font-size: 0.85rem;
+  color: #8ab8d8;
+  margin-bottom: 20px;
+}
+
+.qr-container {
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  display: inline-block;
+  margin-bottom: 18px;
+}
+
+.qr-copy-section {
+  background: rgba(91, 196, 255, 0.08);
+  border: 1px solid rgba(91, 196, 255, 0.2);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 16px;
+}
+
+.qr-copy-label {
+  font-size: 0.75rem;
+  color: #8ab8d8;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.qr-code-box {
+  background: rgba(37, 211, 102, 0.15);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  color: #5bc4ff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+.qr-code-box.alt {
+  background: rgba(91, 196, 255, 0.12);
+}
+
+@media (max-width: 640px) {
+  .qr-float-btn {
+    bottom: 16px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+    font-size: 1.4rem;
+  }
+  .qr-modal-box {
+    margin: 20px;
+    padding: 24px;
+  }
+  .qr-container {
+    transform: scale(0.85);
+  }
+}
+</style>
+
+<div class="qr-modal-backdrop" id="qrModalBackdrop">
+  <div class="qr-modal-box">
+    <button class="qr-modal-close" onclick="closeQRModal()">✕</button>
+    <div class="qr-modal-title">🟢 Invite a Friend</div>
+    <div class="qr-modal-sub">Share this code or scan QR to join</div>
+    <div class="qr-container" id="qrCodeDisplay">
+      <p style="color: #4a7090; font-size: 0.85rem;">Loading QR code...</p>
+    </div>
+    <div class="qr-copy-section">
+      <div class="qr-copy-label">📲 Or send this code:</div>
+      <div class="qr-code-box" id="qrNumber">+14155238886</div>
+      <div class="qr-code-box alt" id="qrCode">join on-largest</div>
+      <button style="width: 100%; background: rgba(91, 196, 255, 0.2); border: 1px solid rgba(91, 196, 255, 0.3); color: #e8f4ff; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; margin-top: 10px; transition: all 0.2s;" onclick="copyQRInfo()">📋 Copy All</button>
+    </div>
+    <p style="font-size: 0.75rem; color: #4a7090; margin-top: 14px;">They'll get a dashboard like yours when they join!</p>
+  </div>
+</div>
+
+<button class="qr-float-btn" onclick="openQRModal()" title="Share & Invite">🔗</button>
+
+<script>
+function openQRModal() {
+  document.getElementById('qrModalBackdrop').classList.add('open');
+  loadQRCode();
+}
+
+function closeQRModal() {
+  document.getElementById('qrModalBackdrop').classList.remove('open');
+}
+
+function loadQRCode() {
+  const qrContainer = document.getElementById('qrCodeDisplay');
+  qrContainer.innerHTML = '<p style="color: #4a7090; font-size: 0.85rem;">Generating QR code...</p>';
+  
+  fetch('/dash/api/whatsapp-info/')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('qrNumber').textContent = data.whatsapp_number;
+      document.getElementById('qrCode').textContent = data.join_code;
+      qrContainer.innerHTML = '';
+      new QRCode(qrContainer, {
+        text: data.whatsapp_link,
+        width: 160,
+        height: 160,
+        colorDark: '#03060f',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    })
+    .catch(err => {
+      console.error('[QR Modal] Error:', err);
+      qrContainer.innerHTML = '<p style="color: #ff7070;">Failed to load QR code</p>';
+    });
+}
+
+function copyQRInfo() {
+  const number = document.getElementById('qrNumber').textContent;
+  const code = document.getElementById('qrCode').textContent;
+  const text = `Send "${code}" to ${number} on WhatsApp to join MemoRax`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+document.getElementById('qrModalBackdrop').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('qrModalBackdrop')) closeQRModal();
+});
+
+if (typeof QRCode === 'undefined') {
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  document.head.appendChild(script);
+}
 </script>
 </body>
 </html>

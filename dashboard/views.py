@@ -1,26 +1,210 @@
 import logging
+import json
 from django.shortcuts import render
 from django.http import JsonResponse, Http404, HttpResponse
 from django.utils import timezone
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 
-from memory_engine.models import DashboardToken, CalendarEvent, Memory, Reminder, SavedFile
+from memory_engine.models import (
+    DashboardToken, CalendarEvent, Memory, Reminder, SavedFile, BotUser
+)
+from memory_engine.utils import (
+    create_otp, verify_otp, normalize_phone
+)
 
 logger = logging.getLogger(__name__)
 
 
 def dashboard_landing(request):
-    """Landing page — number input + join code + auto redirect"""
-    from django.conf import settings
-
-    # Twilio number without "whatsapp:" prefix
-    raw_number = getattr(settings, 'TWILIO_WHATSAPP_NUMBER', 'whatsapp:+14155238886')
-    twilio_number = raw_number.replace('whatsapp:', '')
-
-    context = {
-        'join_code': getattr(settings, 'TWILIO_JOIN_CODE', 'join happy-elephant'),
-        'twilio_number': twilio_number,
-    }
+    """Landing page — phone input + OTP flow"""
+    context = {}
     return render(request, 'dashboard/landing.html', context)
+
+
+@require_http_methods(["GET"])
+def api_whatsapp_info(request):
+    """Get Twilio WhatsApp bot info for joining (phone + join code)"""
+    # Extract phone number from settings (remove 'whatsapp:' prefix if present)
+    whatsapp_number = getattr(settings, 'TWILIO_WHATSAPP_NUMBER', '')
+    if whatsapp_number.startswith('whatsapp:'):
+        whatsapp_number = whatsapp_number.replace('whatsapp:', '')
+    
+    # Remove the leading '+' for the URL
+    whatsapp_phone_clean = whatsapp_number.lstrip('+')
+    
+    join_code = getattr(settings, 'TWILIO_JOIN_CODE', '')
+    
+    return JsonResponse({
+        'whatsapp_number': whatsapp_number,
+        'whatsapp_phone_clean': whatsapp_phone_clean,
+        'join_code': join_code,
+        'whatsapp_link': f'https://wa.me/{whatsapp_phone_clean}?text={join_code.replace(" ", "%20")}'
+    })
+
+
+# ==========================================
+# OTP AUTHENTICATION API ENDPOINTS
+# ==========================================
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_check_phone(request):
+    """Check if phone exists and return email info. For new users, pre-create with email."""
+    try:
+        data = json.loads(request.body)
+        phone = normalize_phone(data.get('phone', '').strip())
+        email = data.get('email', '').strip()
+
+        if not phone:
+            return JsonResponse({
+                "success": False,
+                "message": "Phone number is required"
+            }, status=400)
+
+        # Check if user exists
+        try:
+            user = BotUser.objects.get(phone=phone)
+            # Update email if provided and different
+            if email and user.email != email:
+                user.email = email
+                user.save()
+            return JsonResponse({
+                "success": True,
+                "exists": True,
+                "email": user.email or email,
+                "name": user.name,
+                "message": f"Welcome back! We'll send OTP to {user.email or email}"
+            })
+        except BotUser.DoesNotExist:
+            # PRE-CREATE USER with email for signup flow
+            if email:
+                user = BotUser.objects.create(phone=phone, email=email)
+                logger.info(f"Pre-created user {phone} with email {email}")
+                return JsonResponse({
+                    "success": True,
+                    "exists": False,
+                    "email": email,
+                    "message": "New user! Email saved. You can now scan the QR code."
+                })
+            else:
+                return JsonResponse({
+                    "success": True,
+                    "exists": False,
+                    "message": "New user! Please provide your email to continue."
+                })
+
+    except Exception as e:
+        logger.error(f"Error checking phone: {str(e)}")
+        return JsonResponse({
+            "success": False,
+            "message": "❌ Something went wrong"
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_send_otp(request):
+    """Send OTP to email"""
+    try:
+        data = json.loads(request.body)
+        phone = normalize_phone(data.get('phone', '').strip())
+        email = data.get('email', '').strip()
+
+        if not phone or not email:
+            return JsonResponse({
+                "success": False,
+                "message": "Phone and email are required"
+            }, status=400)
+
+        # Validate email format
+        if '@' not in email or '.' not in email:
+            return JsonResponse({
+                "success": False,
+                "message": "❌ Invalid email format"
+            }, status=400)
+
+        # Create and send OTP
+        result = create_otp(phone, email)
+        return JsonResponse(result)
+
+    except Exception as e:
+        logger.error(f"Error sending OTP: {str(e)}")
+        return JsonResponse({
+            "success": False,
+            "message": "❌ Failed to send OTP"
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_verify_otp(request):
+    """Verify OTP and create dashboard token"""
+    try:
+        data = json.loads(request.body)
+        phone = normalize_phone(data.get('phone', '').strip())
+        email = data.get('email', '').strip()
+        otp_code = data.get('otp', '').strip()
+
+        if not phone or not email or not otp_code:
+            return JsonResponse({
+                "success": False,
+                "message": "Phone, email, and OTP are required"
+            }, status=400)
+
+        # Verify OTP
+        otp_result = verify_otp(phone, email, otp_code)
+
+        if not otp_result["success"]:
+            return JsonResponse({
+                "success": False,
+                "message": otp_result["message"]
+            }, status=400)
+
+        user = otp_result["user"]
+
+        # Create dashboard token (expires in 7 days)
+        import secrets
+        from datetime import timedelta
+        
+        token_str = secrets.token_urlsafe(32)
+        expires_at = timezone.now() + timedelta(days=7)
+        
+        dashboard_token = DashboardToken.objects.create(
+            user=user,
+            token=token_str,
+            expires_at=expires_at
+        )
+
+        return JsonResponse({
+            "success": True,
+            "message": "✅ Login successful!",
+            "token": dashboard_token.token,
+            "redirect_url": f"/dash/{dashboard_token.token}/"
+        })
+
+    except Exception as e:
+        logger.error(f"Error verifying OTP: {str(e)}")
+        return JsonResponse({
+            "success": False,
+            "message": "❌ OTP verification failed"
+        }, status=500)
+
+
+def get_client_ip(request):
+    """Get client IP address from request"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
+# ==========================================
+# SESSION-BASED DASHBOARD VIEWS
+# ==========================================
 
 
 def get_user_from_token(token_str):
@@ -115,6 +299,7 @@ def dashboard_home(request, token):
     context = {
         'user': user,
         'token': token,
+        'url_prefix': f'/dash/{token}/',  # For token-based URLs
         'total_memories': total_memories,
         'total_events': total_events,
         'upcoming_events': upcoming_events,
@@ -132,13 +317,18 @@ def calendar_view(request, token):
     context = {
         'user': user,
         'token': token,
+        'url_prefix': f'/dash/{token}/',  # For token-based URLs
     }
     return render(request, 'dashboard/calendar.html', context)
 
 
 def api_events(request, token):
     """JSON API for FullCalendar - returns events + reminders"""
-    user = get_user_from_token(token)
+    # Check if user object is attached (session-based call)
+    if hasattr(request, 'user_obj'):
+        user = request.user_obj
+    else:
+        user = get_user_from_token(token)
 
     start = request.GET.get('start')
     end = request.GET.get('end')
@@ -208,13 +398,17 @@ def files_view(request, token):
     context = {
         'user': user,
         'token': token,
+        'url_prefix': f'/dash/{token}/',  # For token-based URLs
     }
     return render(request, 'dashboard/files.html', context)
 
 
 def api_files(request, token):
     """JSON API for saved files — returns signed 24h URLs (no direct /media/ exposure)"""
-    user = get_user_from_token(token)
+    if hasattr(request, 'user_obj'):
+        user = request.user_obj
+    else:
+        user = get_user_from_token(token)
     file_type = request.GET.get('type', '')
 
     qs = SavedFile.objects.filter(user=user)
@@ -247,7 +441,11 @@ def api_save_settings(request, token):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST only'}, status=405)
 
-    user = get_user_from_token(token)
+    # Check if user object is attached (session-based call)
+    if hasattr(request, 'user_obj'):
+        user = request.user_obj
+    else:
+        user = get_user_from_token(token)
 
     try:
         data = json.loads(request.body)
@@ -268,7 +466,11 @@ def api_save_settings(request, token):
 
 def api_memories(request, token):
     """JSON API for memories list"""
-    user = get_user_from_token(token)
+    # Check if user object is attached (session-based call)
+    if hasattr(request, 'user_obj'):
+        user = request.user_obj
+    else:
+        user = get_user_from_token(token)
     source_filter = request.GET.get('source', '')
 
     memories_qs = Memory.objects.filter(user=user, is_deleted=False)
@@ -286,3 +488,252 @@ def api_memories(request, token):
         })
 
     return JsonResponse(memories, safe=False)
+
+
+# ==========================================
+# CREATE ENDPOINTS (SESSION-BASED)
+# ==========================================
+
+# ==========================================
+# CREATE ENDPOINTS (TOKEN-BASED)
+# ==========================================
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_create_reminder(request, token):
+    """Create reminder from dashboard (token-based)"""
+    try:
+        user = get_user_from_token(token)
+        data = json.loads(request.body)
+        
+        content = data.get('content', '').strip()
+        remind_at_str = data.get('remind_at', '')
+        
+        if not content:
+            return JsonResponse({'success': False, 'error': 'Content required'}, status=400)
+        if not remind_at_str:
+            return JsonResponse({'success': False, 'error': 'Remind time required'}, status=400)
+        
+        # Parse datetime
+        from datetime import datetime
+        try:
+            remind_at = datetime.fromisoformat(remind_at_str.replace('Z', '+00:00'))
+        except:
+            return JsonResponse({'success': False, 'error': 'Invalid datetime format'}, status=400)
+        
+        reminder = Reminder.objects.create(
+            user=user,
+            content=content,
+            remind_at=remind_at
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'reminder_id': reminder.id,
+            'message': 'Reminder created'
+        })
+    except Exception as e:
+        logger.error(f"Create reminder error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_create_event(request, token):
+    """Create calendar event from dashboard (token-based)"""
+    try:
+        user = get_user_from_token(token)
+        data = json.loads(request.body)
+        
+        title = data.get('title', '').strip()
+        description = data.get('description', '').strip()
+        location = data.get('location', '').strip()
+        participants = data.get('participants', '').strip()
+        color = data.get('color', 'blue')
+        start_time_str = data.get('start_time', '')
+        end_time_str = data.get('end_time', '')
+        
+        if not title:
+            return JsonResponse({'success': False, 'error': 'Title required'}, status=400)
+        if not start_time_str:
+            return JsonResponse({'success': False, 'error': 'Start time required'}, status=400)
+        
+        from datetime import datetime
+        try:
+            start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+            end_time = datetime.fromisoformat(end_time_str.replace('Z', '+00:00')) if end_time_str else start_time
+        except:
+            return JsonResponse({'success': False, 'error': 'Invalid datetime format'}, status=400)
+        
+        event = CalendarEvent.objects.create(
+            user=user,
+            title=title,
+            description=description,
+            location=location,
+            participants=participants,
+            color=color,
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'event_id': event.id,
+            'message': 'Event created'
+        })
+    except Exception as e:
+        logger.error(f"Create event error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_upload_file(request, token):
+    """Upload file to vault (token-based)"""
+    try:
+        user = get_user_from_token(token)
+        
+        if 'file' not in request.FILES:
+            return JsonResponse({'success': False, 'error': 'No file provided'}, status=400)
+        
+        file_obj = request.FILES['file']
+        caption = request.POST.get('caption', '')
+        
+        # Validate file size (10MB max)
+        if file_obj.size > 10 * 1024 * 1024:
+            return JsonResponse({'success': False, 'error': 'File too large (max 10MB)'}, status=400)
+        
+        # Save to database
+        import os
+        filename = f"{user.id}_{file_obj.name}"
+        file_path = f"vault/{user.id}/{filename}"
+        
+        saved_file = SavedFile.objects.create(
+            user=user,
+            file=file_obj,
+            file_path=file_path,
+            caption=caption
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'file_id': saved_file.id,
+            'filename': file_obj.name,
+            'message': 'File uploaded'
+        })
+    except Exception as e:
+        logger.error(f"Upload file error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ==========================================
+# SESSION LOGOUT
+# ==========================================
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_logout(request):
+    """Log out user by clearing session"""
+    request.session.flush()
+    return JsonResponse({
+        'success': True,
+        'message': 'Logged out successfully'
+    })
+
+
+# ==========================================
+# USER PROFILE
+# ==========================================
+
+def profile_view(request, token):
+    """User profile page"""
+    user = get_user_from_token(token)
+    
+    context = {
+        'user': user,
+        'token': token,
+        'url_prefix': f'/dash/{token}/',
+        'stats': {
+            'total_memories': Memory.objects.filter(user=user, is_deleted=False).count(),
+            'total_events': CalendarEvent.objects.filter(user=user).count(),
+            'total_reminders': Reminder.objects.filter(user=user).count(),
+            'total_files': SavedFile.objects.filter(user=user).count(),
+        }
+    }
+    return render(request, 'dashboard/profile.html', context)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_update_profile(request, token):
+    """Update user profile (name, email)"""
+    try:
+        user = get_user_from_token(token)
+        data = json.loads(request.body)
+        
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        reminder_repeat = data.get('reminder_repeat_minutes', 0)
+        
+        if name:
+            user.name = name
+        if email and email != user.email:
+            # Check if email already exists
+            if BotUser.objects.filter(email=email).exclude(id=user.id).exists():
+                return JsonResponse({
+                    'success': False,
+                    'message': '❌ Email already used by another account'
+                }, status=400)
+            user.email = email
+        
+        if reminder_repeat is not None:
+            user.reminder_repeat_minutes = int(reminder_repeat)
+        
+        user.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': '✅ Profile updated!',
+            'user': {
+                'name': user.name,
+                'email': user.email,
+                'tier': user.tier,
+                'reminder_repeat_minutes': user.reminder_repeat_minutes
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"Update profile error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def api_get_profile(request, token):
+    """Get user profile data"""
+    try:
+        user = get_user_from_token(token)
+        
+        return JsonResponse({
+            'success': True,
+            'profile': {
+                'name': user.name,
+                'email': user.email,
+                'phone': user.phone,
+                'tier': user.tier,
+                'memory_count': user.memory_count,
+                'reminder_repeat_minutes': user.reminder_repeat_minutes,
+                'created_at': user.created_at.isoformat(),
+                'is_active': user.is_active,
+            },
+            'stats': {
+                'total_memories': Memory.objects.filter(user=user, is_deleted=False).count(),
+                'total_events': CalendarEvent.objects.filter(user=user).count(),
+                'total_reminders': Reminder.objects.filter(user=user).count(),
+                'total_files': SavedFile.objects.filter(user=user).count(),
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"Get profile error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+

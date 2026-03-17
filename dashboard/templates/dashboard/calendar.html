@@ -25,8 +25,7 @@ body.light-mode{
   --border:rgba(0,102,204,0.14);
   --card-bg:rgba(255,255,255,0.85);
 }
-html,body{height:100%;}
-body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .5s ease,color .5s ease;}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-y:auto;transition:background .5s ease,color .5s ease;}
 
 /* SPACE BG */
 .space-bg{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 80% 60% at 15% 40%,#0c1d42 0%,#060e22 45%,#020509 100%);overflow:hidden;pointer-events:none;transition:opacity .5s ease;}
@@ -40,7 +39,11 @@ body.light-mode .space-bg{opacity:0;}
 .layout{position:relative;z-index:1;margin-left:240px;min-height:100vh;}
 
 /* SIDEBAR — always fixed, outside layout stacking context */
-.sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;z-index:300;background:var(--sidebar-bg);border-right:1px solid var(--border);box-shadow:4px 0 24px rgba(0,0,0,.3);display:flex;flex-direction:column;padding:24px 16px;transition:background .5s ease,border-color .5s ease;}
+.sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;z-index:300;background:var(--sidebar-bg);border-right:1px solid var(--border);box-shadow:4px 0 24px rgba(0,0,0,.3);display:flex;flex-direction:column;padding:24px 16px;transition:background .5s ease,border-color .5s ease,transform .3s cubic-bezier(0.34,1.56,0.64,1);}
+.sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;}
+.sidebar-nav::-webkit-scrollbar{width:3px;}
+.sidebar-nav::-webkit-scrollbar-track{background:transparent;}
+.sidebar-nav::-webkit-scrollbar-thumb{background:rgba(91,196,255,.2);border-radius:4px;}
 .sidebar-logo{font-family:'Baloo 2',cursive;font-size:1.5rem;font-weight:800;color:var(--yellow);display:flex;align-items:center;gap:8px;text-shadow:0 0 20px rgba(255,210,51,.4);margin-bottom:24px;text-decoration:none;}
 .logo-star{animation:logoPulse 4s ease-in-out infinite;}
 @keyframes logoPulse{0%,100%{filter:drop-shadow(0 0 4px #FFD233);}50%{filter:drop-shadow(0 0 14px #FFD233);}}
@@ -56,6 +59,12 @@ body.light-mode .space-bg{opacity:0;}
 .theme-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:10px;background:rgba(91,196,255,.08);border:1px solid var(--border);color:var(--text-mid);font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;padding:8px;border-radius:10px;cursor:pointer;transition:background .2s,color .2s;}
 .theme-btn:hover{background:rgba(91,196,255,.16);color:var(--blue);}
 body.light-mode .theme-btn{background:rgba(0,102,204,.07);}
+.logout-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:8px;background:rgba(244,63,94,.08);border:1.5px solid rgba(244,63,94,.25);color:#ff7070;font-family:'Nunito',sans-serif;font-weight:700;font-size:.8rem;padding:8px;border-radius:10px;cursor:pointer;transition:background .2s,color .2s,border-color .2s;}
+.logout-btn:hover{background:rgba(244,63,94,.15);color:#ff8080;border-color:rgba(244,63,94,.4);}
+
+/* PAGE TRANSITION */
+.layout{animation:pageFadeIn .35s ease both;}
+@keyframes pageFadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 
 /* MAIN */
 .main{padding:32px;min-width:0;}
@@ -161,33 +170,40 @@ body.light-mode .mob-toggle,body.light-mode .mob-theme-btn{background:rgba(0,102
   <a href="/" class="sidebar-logo"><span class="logo-star">⭐</span> MemoRax</a>
 
   <div class="sidebar-user">
-    <div class="sidebar-user-name">👋 {{ user.name|default:"Friend" }}</div>
+    <div class="sidebar-user-name">👋 {{ user.name|default:user.email|default:"User" }}</div>
     <div class="sidebar-user-plan">{{ user.tier|upper }} Plan</div>
   </div>
 
   <nav class="sidebar-nav">
-    <a href="/dash/{{ token }}/" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}" onclick="closeSidebar()">
       <span class="nav-icon">🏠</span> Overview
     </a>
-    <a href="/dash/{{ token }}/calendar/" class="active" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}calendar/" class="active" onclick="closeSidebar()">
       <span class="nav-icon">📅</span> Calendar
     </a>
-    <a href="/dash/{{ token }}/#memories" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}#memories" onclick="closeSidebar()">
       <span class="nav-icon">🧠</span> Memories
     </a>
-    <a href="/dash/{{ token }}/#reminders" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}#reminders" onclick="closeSidebar()">
       <span class="nav-icon">⏰</span> Reminders
     </a>
-    <a href="/dash/{{ token }}/files/" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}files/" onclick="closeSidebar()">
       <span class="nav-icon">📁</span> File Vault
     </a>
-    <a href="/dash/{{ token }}/#activity" onclick="closeSidebar()">
+    <a href="{{ url_prefix }}#activity" onclick="closeSidebar()">
       <span class="nav-icon">📊</span> Activity
+    </a>
+    <a href="{{ url_prefix }}profile/" onclick="closeSidebar()">
+      <span class="nav-icon">👤</span> Profile
+    </a>
+    <a href="{{ url_prefix }}#settings" onclick="closeSidebar()">
+      <span class="nav-icon">⚙️</span> Settings
     </a>
   </nav>
 
   <div class="sidebar-footer">MemoRax AI · Your memory on WhatsApp</div>
   <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
+  <button class="logout-btn" onclick="logout()">🚪 Logout</button>
 </aside>
 
 <div class="layout">
@@ -195,9 +211,41 @@ body.light-mode .mob-toggle,body.light-mode .mob-theme-btn{background:rgba(0,102
   <!-- MAIN -->
   <main class="main">
 
-    <div class="page-header">
-      <div class="page-title">📅 Calendar</div>
-      <div class="page-sub">All your events added via WhatsApp</div>
+    <div class="page-header" style="flex-wrap:wrap;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="page-title">📅 Calendar</div>
+        <div class="page-sub">All your events added via WhatsApp</div>
+      </div>
+      <button class="save-btn" style="font-size:.85rem;padding:10px 16px;align-self:flex-start" onclick="showCreateEventForm()">+ New Event</button>
+    </div>
+    
+    <!-- Create Event Modal (Hidden) -->
+    <div id="createEventModal" style="display:none;background:rgba(91,196,255,.06);border:1px solid rgba(91,196,255,.15);border-radius:14px;padding:16px;margin-bottom:16px">
+      <h3 style="color:var(--blue);margin-bottom:12px;font-size:.95rem">Create New Event</h3>
+      <div style="display:grid;gap:10px">
+        <input type="text" id="eventTitle" placeholder="Event title" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-family:'Nunito',sans-serif" />
+        <textarea id="eventDesc" placeholder="Description (optional)" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-family:'Nunito',sans-serif;min-height:60px;resize:vertical"></textarea>
+        <input type="text" id="eventLocation" placeholder="Location (optional)" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-family:'Nunito',sans-serif" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <input type="datetime-local" id="eventStart" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-family:'Nunito',sans-serif" />
+          <input type="datetime-local" id="eventEnd" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-family:'Nunito',sans-serif" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <input type="text" id="eventParticipants" placeholder="Participants (comma-separated)" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-family:'Nunito',sans-serif" />
+          <select id="eventColor" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-family:'Nunito',sans-serif">
+            <option value="blue">🔵 Meeting (Blue)</option>
+            <option value="green">🟢 Personal (Green)</option>
+            <option value="purple">🟣 Appointment (Purple)</option>
+            <option value="red">🔴 Deadline (Red)</option>
+            <option value="orange">🟠 Other (Orange)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="save-btn" style="flex:1;font-size:.8rem;padding:8px" onclick="createEvent()">Save Event</button>
+          <button class="save-btn" style="flex:1;font-size:.8rem;padding:8px;background:#666" onclick="hideCreateEventForm()">Cancel</button>
+        </div>
+        <span id="eventError" style="color:#ff6b6b;font-size:.8rem;display:none"></span>
+      </div>
     </div>
 
     <!-- Legend -->
@@ -207,7 +255,7 @@ body.light-mode .mob-toggle,body.light-mode .mob-theme-btn{background:rgba(0,102
       <span class="legend-item"><span class="leg-dot" style="background:#a78bfa"></span> Appointment</span>
       <span class="legend-item"><span class="leg-dot" style="background:#f87171"></span> Deadline</span>
       <span class="legend-item"><span class="leg-dot" style="background:#FFD233"></span> Reminder</span>
-      <span class="legend-hint">💡 Say "Meeting with Rahul tomorrow 3pm" on WhatsApp</span>
+      <span class="legend-hint">💡 You can also say "Meeting with Rahul tomorrow 3pm" on WhatsApp</span>
     </div>
 
     <!-- Calendar -->
@@ -251,8 +299,14 @@ function toggleSidebar(){
   document.getElementById('sidebarOverlay').classList.toggle('open');
 }
 
+function logout(){
+  if(!confirm('Are you sure you want to logout?')) return;
+  window.location.href = '/dash/';
+}
+
 /* FullCalendar */
 const TOKEN = "{{ token }}";
+const URL_PREFIX = "{{ url_prefix }}";
 document.addEventListener('DOMContentLoaded', function() {
   const calendarEl = document.getElementById('calendar');
   const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -262,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
       center: 'title',
       right: 'dayGridMonth,timeGridWeek,timeGridDay'
     },
-    events: `/dash/${TOKEN}/api/events/`,
+    events: `${URL_PREFIX}api/events/`,
     eventClick: function(info) { showModal(info.event); },
     eventMouseEnter: function(info) { info.el.style.opacity = '0.8'; },
     eventMouseLeave: function(info) { info.el.style.opacity = '1'; },
@@ -344,6 +398,315 @@ function toggleSidebar(){
 function closeSidebar(){
   document.getElementById('sidebar').classList.remove('mob-open');
   document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+/* ── Event Creation ─────────────────────── */
+function showCreateEventForm(){
+  document.getElementById('createEventModal').style.display = '';
+  document.getElementById('eventTitle').focus();
+}
+
+function hideCreateEventForm(){
+  document.getElementById('createEventModal').style.display = 'none';
+  document.getElementById('eventTitle').value = '';
+  document.getElementById('eventDesc').value = '';
+  document.getElementById('eventLocation').value = '';
+  document.getElementById('eventStart').value = '';
+  document.getElementById('eventEnd').value = '';
+  document.getElementById('eventParticipants').value = '';
+  document.getElementById('eventError').style.display = 'none';
+}
+
+async function createEvent(){
+  const title = document.getElementById('eventTitle').value.trim();
+  const desc = document.getElementById('eventDesc').value.trim();
+  const location = document.getElementById('eventLocation').value.trim();
+  const startStr = document.getElementById('eventStart').value;
+  const endStr = document.getElementById('eventEnd').value;
+  const participants = document.getElementById('eventParticipants').value.split(',').map(p => p.trim()).filter(p => p);
+  const color = document.getElementById('eventColor').value;
+  const errEl = document.getElementById('eventError');
+  
+  if(!title){
+    errEl.textContent = '❌ Event title is required';
+    errEl.style.display = '';
+    return;
+  }
+  
+  if(!startStr || !endStr){
+    errEl.textContent = '❌ Both start and end times are required';
+    errEl.style.display = '';
+    return;
+  }
+  
+  try{
+    const response = await fetch(`${URL_PREFIX}api/create-event/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        title: title,
+        description: desc,
+        location: location,
+        start_time: new Date(startStr).toISOString(),
+        end_time: new Date(endStr).toISOString(),
+        participants: participants,
+        color: color
+      })
+    });
+    
+    const data = await response.json();
+    
+    if(data.success){
+      hideCreateEventForm();
+      alert(data.message);
+      location.reload();
+    }else{
+      errEl.textContent = '❌ ' + (data.message || 'Failed to create event');
+      errEl.style.display = '';
+    }
+  }catch(e){
+    console.error(e);
+    errEl.textContent = '❌ Network error';
+    errEl.style.display = '';
+  }
+}
+</script>
+
+<!-- Floating QR Code Button -->
+<style>
+.qr-float-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #25d366, #128c3e);
+  color: white;
+  border: none;
+  font-size: 1.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 24px rgba(37, 211, 102, 0.4);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 250;
+}
+
+.qr-float-btn:hover {
+  transform: scale(1.12) translateY(-3px);
+  box-shadow: 0 10px 32px rgba(37, 211, 102, 0.6);
+}
+
+.qr-float-btn:active {
+  transform: scale(0.95);
+}
+
+.qr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.qr-modal-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.qr-modal-box {
+  background: linear-gradient(135deg, #060e22, #0c1d42);
+  border: 1px solid rgba(91, 196, 255, 0.25);
+  border-radius: 20px;
+  padding: 32px;
+  text-align: center;
+  transform: scale(0.9) translateY(20px);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.qr-modal-backdrop.open .qr-modal-box {
+  transform: scale(1) translateY(0);
+}
+
+.qr-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #e8f4ff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.qr-modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.qr-modal-title {
+  font-family: 'Baloo 2', cursive;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #e8f4ff;
+  margin-bottom: 8px;
+}
+
+.qr-modal-sub {
+  font-size: 0.85rem;
+  color: #8ab8d8;
+  margin-bottom: 20px;
+}
+
+.qr-container {
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  display: inline-block;
+  margin-bottom: 18px;
+}
+
+.qr-copy-section {
+  background: rgba(91, 196, 255, 0.08);
+  border: 1px solid rgba(91, 196, 255, 0.2);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 16px;
+}
+
+.qr-copy-label {
+  font-size: 0.75rem;
+  color: #8ab8d8;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.qr-code-box {
+  background: rgba(37, 211, 102, 0.15);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  color: #5bc4ff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+.qr-code-box.alt {
+  background: rgba(91, 196, 255, 0.12);
+}
+
+@media (max-width: 640px) {
+  .qr-float-btn {
+    bottom: 16px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+    font-size: 1.4rem;
+  }
+  .qr-modal-box {
+    margin: 20px;
+    padding: 24px;
+  }
+  .qr-container {
+    transform: scale(0.85);
+  }
+}
+</style>
+
+<div class="qr-modal-backdrop" id="qrModalBackdrop">
+  <div class="qr-modal-box">
+    <button class="qr-modal-close" onclick="closeQRModal()">✕</button>
+    <div class="qr-modal-title">🟢 Invite a Friend</div>
+    <div class="qr-modal-sub">Share this code or scan QR to join</div>
+    <div class="qr-container" id="qrCodeDisplay">
+      <p style="color: #4a7090; font-size: 0.85rem;">Loading QR code...</p>
+    </div>
+    <div class="qr-copy-section">
+      <div class="qr-copy-label">📲 Or send this code:</div>
+      <div class="qr-code-box" id="qrNumber">+14155238886</div>
+      <div class="qr-code-box alt" id="qrCode">join on-largest</div>
+      <button style="width: 100%; background: rgba(91, 196, 255, 0.2); border: 1px solid rgba(91, 196, 255, 0.3); color: #e8f4ff; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; margin-top: 10px; transition: all 0.2s;" onclick="copyQRInfo()">📋 Copy All</button>
+    </div>
+    <p style="font-size: 0.75rem; color: #4a7090; margin-top: 14px;">They'll get a dashboard like yours when they join!</p>
+  </div>
+</div>
+
+<button class="qr-float-btn" onclick="openQRModal()" title="Share & Invite">🔗</button>
+
+<script>
+function openQRModal() {
+  document.getElementById('qrModalBackdrop').classList.add('open');
+  loadQRCode();
+}
+
+function closeQRModal() {
+  document.getElementById('qrModalBackdrop').classList.remove('open');
+}
+
+function loadQRCode() {
+  const qrContainer = document.getElementById('qrCodeDisplay');
+  qrContainer.innerHTML = '<p style="color: #4a7090; font-size: 0.85rem;">Generating QR code...</p>';
+  
+  fetch('/dash/api/whatsapp-info/')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('qrNumber').textContent = data.whatsapp_number;
+      document.getElementById('qrCode').textContent = data.join_code;
+      qrContainer.innerHTML = '';
+      new QRCode(qrContainer, {
+        text: data.whatsapp_link,
+        width: 160,
+        height: 160,
+        colorDark: '#03060f',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    })
+    .catch(err => {
+      console.error('[QR Modal] Error:', err);
+      qrContainer.innerHTML = '<p style="color: #ff7070;">Failed to load QR code</p>';
+    });
+}
+
+function copyQRInfo() {
+  const number = document.getElementById('qrNumber').textContent;
+  const code = document.getElementById('qrCode').textContent;
+  const text = `Send "${code}" to ${number} on WhatsApp to join MemoRax`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+document.getElementById('qrModalBackdrop').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('qrModalBackdrop')) closeQRModal();
+});
+
+if (typeof QRCode === 'undefined') {
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  document.head.appendChild(script);
 }
 </script>
 </body>

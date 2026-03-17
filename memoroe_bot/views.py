@@ -11,10 +11,10 @@ from django.views.decorators.http import require_POST
 from django.conf import settings
 from django.utils import timezone
 from twilio.rest import Client
-from twilio.request_validator import RequestValidator
 
 from memory_engine.models import BotUser, DashboardToken
 from memory_engine.brain import MemoRaxBrain
+from memory_engine.utils import normalize_phone
 
 logger = logging.getLogger(__name__)
 
@@ -130,13 +130,26 @@ def whatsapp_webhook(request):
         if not user_phone:
             return HttpResponse("No phone", status=400)
 
+        # Normalize phone number to prevent duplicate accounts
+        user_phone = normalize_phone(user_phone)
+
         logger.info(f"Message from {user_phone}: {user_msg[:50]}")
 
-        # Get or create user
-        user, is_new = BotUser.objects.get_or_create(
-            phone=user_phone,
-            defaults={"name": user_name}
-        )
+        # Get or create user — also check old 'whatsapp:+91...' format for existing users
+        is_new = False
+        user = BotUser.objects.filter(phone=user_phone).first()
+        if not user:
+            # Check old format (before normalization was added)
+            old_fmt = f"whatsapp:{user_phone}"
+            user = BotUser.objects.filter(phone=old_fmt).first()
+            if user:
+                # Migrate to normalized format
+                user.phone = user_phone
+                user.save(update_fields=['phone'])
+                logger.info(f"Migrated phone {old_fmt} → {user_phone}")
+            else:
+                user = BotUser.objects.create(phone=user_phone, name=user_name)
+                is_new = True
 
         # Update name if changed
         if user_name and user.name != user_name:
@@ -160,8 +173,18 @@ def whatsapp_webhook(request):
         # Handle media (voice notes, images, documents)
         if num_media > 0:
             reply = handle_media(request, user)
-            send_whatsapp(user_phone, reply)
+            # Media upload: always send text confirmation (never re-send the file back)
+            if isinstance(reply, dict):
+                if reply.get("success"):
+                    send_whatsapp(user_phone, reply.get("description", "✅ Saved to your vault!"))
+                else:
+                    send_whatsapp(user_phone, reply.get("message", "❌ Sorry, something went wrong."))
+            else:
+                send_whatsapp(user_phone, reply)
             return HttpResponse("OK", status=200)
+
+        # Get current base URL from request (works automatically with ngrok/any domain)
+        current_base_url = request.scheme + '://' + request.get_host()
 
         # Process text commands
         reply = process_command(user, user_msg)
@@ -169,19 +192,27 @@ def whatsapp_webhook(request):
         # Check if reply is a dict (for image retrieval)
         if isinstance(reply, dict):
             if reply.get("success") and reply.get("media_path"):
-                # Send image
-                send_whatsapp_media(user_phone, reply["media_path"], reply.get("description", ""))
+                send_whatsapp_media(user_phone, reply["media_path"], reply.get("description", ""), base_url=current_base_url)
             else:
-                # Send error message
                 send_whatsapp(user_phone, reply.get("message", "Sorry, something went wrong."))
         else:
-            # Normal text reply
             send_whatsapp(user_phone, reply)
 
         return HttpResponse("OK", status=200)
 
     except Exception as e:
         logger.error(f"Webhook error: {e}", exc_info=True)
+        # Always try to send error reply so user is never left with no response
+        try:
+            if user_phone:
+                _to = f'whatsapp:{user_phone}' if not user_phone.startswith('whatsapp:') else user_phone
+                twilio_client.messages.create(
+                    body="⚠️ Something went wrong processing your message. Please try again.",
+                    from_=settings.TWILIO_WHATSAPP_NUMBER,
+                    to=_to
+                )
+        except Exception:
+            pass
         return HttpResponse("Error", status=500)
 
 
@@ -293,8 +324,17 @@ def handle_media(request, user: BotUser) -> str:
 # SEND WHATSAPP MESSAGE
 # =============================================
 def send_whatsapp(to: str, body: str):
-    """Send a WhatsApp message via Twilio"""
+    """Send a WhatsApp message via Twilio
+    
+    Args:
+        to: Recipient phone number (normalized or with whatsapp: prefix)
+        body: Message text to send
+    """
     try:
+        # Ensure phone has whatsapp: prefix for Twilio API
+        if not to.startswith('whatsapp:'):
+            to = f'whatsapp:{to}'
+        
         # Twilio has 1600 char limit per message
         if len(body) > 1500:
             # Split long messages
@@ -316,31 +356,49 @@ def send_whatsapp(to: str, body: str):
         logger.error(f"Twilio send error: {e}")
 
 
-def send_whatsapp_media(to: str, media_path: str, caption: str = ""):
+def send_whatsapp_media(to: str, media_path: str, caption: str = "", base_url: str = None):
     """Send media back to user.
-    - Images + PDFs → Twilio media_url (WhatsApp renders them natively)
-    - docx/other   → signed download link as text (WhatsApp doesn't support these)
-    Files are served via HMAC-signed URLs — direct /media/ access is disabled.
+    Strategy:
+    1. ALWAYS send a text confirmation first (so user gets something)
+    2. THEN attempt Twilio media_url delivery for images/PDFs
+    base_url: auto-detected from the incoming request (always current ngrok URL)
     """
     import os
     from memory_engine.views import make_file_url
 
+    if not to.startswith('whatsapp:'):
+        to = f'whatsapp:{to}'
+
     full_path = os.path.join(settings.MEDIA_ROOT, media_path)
     if not os.path.exists(full_path):
         logger.error(f"Media file not found: {full_path}")
-        send_whatsapp(to, "📭 Sorry, that file is missing from the vault.")
+        send_whatsapp(to, "📭 Sorry, that file could not be found in the vault.")
         return
 
-    base_url = getattr(settings, 'BASE_URL', 'http://localhost:8000')
-    # Signed URL valid 30 min — enough for Twilio to fetch + deliver
+    # Use passed base_url (from request) → always current ngrok URL
+    # Fallback to settings BASE_URL if not provided
+    if not base_url:
+        base_url = getattr(settings, 'BASE_URL', 'http://localhost:8000')
     public_url = f"{base_url}{make_file_url(media_path, expires_in=1800)}"
     ext = os.path.splitext(media_path)[1].lower()
+    filename = os.path.basename(media_path)
 
-    # WhatsApp supports: images + PDF via Twilio media_url
+    if ext in {'.jpg', '.jpeg', '.png', '.gif', '.webp'}:
+        icon = '📸'
+    elif ext == '.pdf':
+        icon = '📄'
+    elif ext in {'.docx', '.doc'}:
+        icon = '📝'
+    else:
+        icon = '📎'
+
+    # Step 1: ALWAYS send text first — user always gets a response
+    text_msg = f"{icon} *Found:* {caption or filename}\n\n🔗 _Download link (30 min):_\n{public_url}"
+    send_whatsapp(to, text_msg)
+
+    # Step 2: Also try to send as WhatsApp media (images + PDFs render natively)
     twilio_supported = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf'}
-
     if ext in twilio_supported:
-        icon = '📸' if ext != '.pdf' else '📄'
         try:
             twilio_client.messages.create(
                 body=caption or f"{icon} Here's your file!",
@@ -349,19 +407,9 @@ def send_whatsapp_media(to: str, media_path: str, caption: str = ""):
                 to=to
             )
             logger.info(f"Media sent to {to}: {public_url}")
-            return
         except Exception as e:
             logger.error(f"Twilio media_url send error: {e}")
-            # fall through to link fallback
-
-    # docx, doc, txt, and unsupported formats → send download link
-    filename = os.path.basename(media_path)
-    icon = '📝' if ext in {'.docx', '.doc', '.txt'} else '📎'
-    msg = f"{icon} *{filename}*\n"
-    if caption:
-        msg += f"{caption}\n"
-    msg += f"\n🔗 Download link:\n{public_url}\n\n_Open in browser to download._"
-    send_whatsapp(to, msg)
+            # text was already sent above, so user is not left without response
 
 
 # =============================================
